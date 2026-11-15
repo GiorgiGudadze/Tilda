@@ -72,3 +72,49 @@ test('the theme follows the system setting until the user chooses', async ({
   await page.goto('/traces');
   await expect(page.locator('html')).toHaveClass(/dark/);
 });
+
+test('filters live in the URL, so a filtered list can be shared', async ({
+  page,
+}) => {
+  await page.goto('/traces');
+  await page.getByRole('combobox', { name: 'Status' }).selectOption('Error');
+  await page
+    .getByRole('button', { name: /^Under 100 ms, \d+ traces$/ })
+    .click();
+  await expect(page).toHaveURL(/status=error/);
+  await expect(page).toHaveURL(/duration=under-100ms/);
+  // The count line replaces "Updating…" once the filtered list has loaded.
+  await expect(page.getByText(/^\d+ to \d+ of \d+ traces$/)).toBeVisible();
+  const count = await page.getByRole('row').count();
+  await expectNoAxeViolations(page);
+
+  // The same link in a new tab shows the same list.
+  const copy = await page.context().newPage();
+  await copy.goto(page.url());
+  await expect(copy.getByRole('combobox', { name: 'Status' })).toHaveValue(
+    'error',
+  );
+  await expect(copy.getByRole('row')).toHaveCount(count);
+  await expect(
+    copy.getByRole('button', { name: /^Under 100 ms, \d+ traces$/ }),
+  ).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('a phone gets cards and the page still fits the screen', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.goto('/traces');
+  await expect(page.getByRole('listitem')).toHaveCount(25);
+  await expect(page.getByRole('table')).toHaveCount(0);
+  // Nothing is wider than the screen.
+  const overflow = await page
+    .locator('html')
+    .evaluate((html) => html.scrollWidth - html.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+  await expectNoAxeViolations(page);
+
+  await page.getByRole('button', { name: 'New to traces?' }).click();
+  await expect(page.getByText('Think of a parcel')).toBeVisible();
+  await expectNoAxeViolations(page);
+});

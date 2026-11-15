@@ -1,11 +1,23 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { toSearchParams, type TraceFilters } from '@/features/traces/filters';
+import {
+  serviceListSchema,
+  traceDetailSchema,
+  traceListSchema,
+} from '@/features/traces/schemas';
 import { getJson } from '@/lib/api';
-import { traceDetailSchema, traceListSchema } from '@/features/traces/schemas';
 
-export function useTraces() {
+export function useTraces(filters: TraceFilters) {
   return useQuery({
-    queryKey: ['traces', 'list'],
-    queryFn: ({ signal }) => getJson('/api/traces', traceListSchema, signal),
+    queryKey: ['traces', 'list', filters],
+    queryFn: ({ signal }) =>
+      getJson(
+        `/api/traces?${toSearchParams(filters)}`,
+        traceListSchema,
+        signal,
+      ),
+    // While the next page or filter loads, keep showing the current rows.
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -18,5 +30,15 @@ export function useTrace(id: string) {
         traceDetailSchema,
         signal,
       ),
+  });
+}
+
+export function useServices() {
+  return useQuery({
+    queryKey: ['services'],
+    queryFn: ({ signal }) =>
+      getJson('/api/services', serviceListSchema, signal),
+    // The list of services does not change while the app is open.
+    staleTime: Infinity,
   });
 }

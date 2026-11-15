@@ -73,6 +73,22 @@ One path through every layer, before any polish: schema, seeded data, mock API, 
 - **`/design` is the only lazy route.** While its code downloads the page shows a loading line. If the download fails, the router's error page offers a reload and keeps the header. Its chunk is 6.8 kB.
 - **Left for later steps:** the Demo controls and the Investigation link in the header (steps 4 and 6), the confidence badge and suggestion card (step 7).
 
+### Step 4: the traces page
+
+- **Filters live in the URL** (nuqs): search, service, status, sort, page and the duration range. A filtered list is a link that can be shared. Values in the URL that make no sense are ignored.
+- **One rule for page 1.** `useTraceFilters` gives the page one `setFilters` function, and it always clears `page`. No filter can forget to return to page 1.
+- **A page beyond the last.** The API answers with the last page, and the page shows `min(page in the URL, last page)`. There is no effect that rewrites the URL and no second request.
+- **Search is debounced on the request, not on the input.** The search box updates the URL on every key, so it never lags and "Clear filters" just works. `useDebouncedValue` holds the request back until typing stops for 300 ms.
+- **The current rows stay while the next ones load** (`placeholderData: keepPreviousData`). The count line says "Updating…" meanwhile. I first dimmed the rows instead, and axe caught it: the dimmed text fell below the contrast minimum.
+- **The service filter matches any service in the trace**, not only the entry point. Every trace enters at `api-gateway`, so a filter on the entry point would be useless. The entry service is shown beside the request, not as its own column.
+- **The duration chart is six buttons.** The ranges are fixed and their counts come with the list response. The counts ignore the selected range, so the other bars stay and another range can be picked. A selected bar is marked by a frame and bold text, not by colour alone, and a second click clears it. Each button is named like "2 to 3 s, 14 traces".
+- **States.** Skeleton rows on the first load, an empty state with "Clear filters", an error state with Retry.
+- **Table on wide screens, cards on phones.** `useMediaQuery` renders one or the other, so the content is in the page once.
+- **Native `<select>`** for service, status and sort. The browser already handles the keyboard, screen readers and phones. Radix is used where the edge cases are the hard part: the "New to traces?" popover.
+- **Demo control** (header). It switches the mock API to slow responses, server errors or no data, then resets every query, so each state can be seen on demand. The mode belongs to the mock layer, not to React state or the URL.
+- **The mock validates the query** with the same zod schema the feature exports, and answers 400 to a bad one. `queryTraces` is a pure function with its own unit tests.
+- **Left for later steps:** the pinned marker on rows (step 6).
+
 ## Time spent
 
 | Step | Time |
@@ -80,3 +96,4 @@ One path through every layer, before any polish: schema, seeded data, mock API, 
 | 1    |      |
 | 2    |      |
 | 3    |      |
+| 4    |      |

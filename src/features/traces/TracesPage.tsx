@@ -1,18 +1,65 @@
-import { Link } from 'react-router';
+import { SearchX } from 'lucide-react';
+import { DurationChart } from '@/components/DurationChart';
+import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
-import { StatusBadge } from '@/components/StatusBadge';
+import { Pagination } from '@/components/Pagination';
+import { Skeleton } from '@/components/Skeleton';
+import { Button } from '@/components/ui/button';
+import { DURATION_BUCKETS } from '@/features/traces/duration-buckets';
+import { useTraceFilters } from '@/features/traces/filters';
 import { useTraces } from '@/features/traces/hooks';
-import { formatDateTime, formatDuration } from '@/lib/format';
+import { PAGE_SIZE } from '@/features/traces/schemas';
+import { TraceFilterBar } from '@/features/traces/TraceFilterBar';
+import {
+  TraceCards,
+  TraceResultsSkeleton,
+  TraceTable,
+} from '@/features/traces/TraceResults';
+import { TracesHelp } from '@/features/traces/TracesHelp';
+import { useDebouncedValue } from '@/lib/use-debounced-value';
+import { useMediaQuery } from '@/lib/use-media-query';
 
 export function TracesPage() {
-  const { data, isPending, refetch } = useTraces();
+  const { filters, hasFilters, setFilters, setPage, clearFilters } =
+    useTraceFilters();
+
+  // The search box updates the URL on every key. The request waits until
+  // typing stops.
+  const debouncedQ = useDebouncedValue(filters.q, 300);
+  const { data, isPending, isPlaceholderData, refetch } = useTraces({
+    ...filters,
+    q: debouncedQ,
+  });
+
+  // A table needs width. Phones get cards.
+  const isWide = useMediaQuery('(min-width: 640px)');
+
+  // The API answers a page beyond the last with the last page, so show that
+  // page's number instead of the one in the URL.
+  const pageCount = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
+  const page = Math.min(filters.page, pageCount);
+  const firstRow = (page - 1) * PAGE_SIZE + 1;
+
+  const bars = DURATION_BUCKETS.map((bucket) => ({
+    key: bucket.key,
+    label: bucket.label,
+    count: data?.buckets.find((item) => item.key === bucket.key)?.count ?? 0,
+  }));
 
   return (
     <>
-      <h1 className="text-2xl font-semibold">Traces</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-2xl font-semibold">Traces</h1>
+        <TracesHelp />
+      </div>
+
+      <TraceFilterBar filters={filters} onChange={setFilters} />
 
       {isPending ? (
-        <p>Loading traces…</p>
+        <>
+          <Skeleton className="h-19 w-full" />
+          <TraceResultsSkeleton />
+        </>
       ) : !data ? (
         <ErrorState
           title="The traces could not be loaded"
@@ -20,62 +67,56 @@ export function TracesPage() {
         />
       ) : (
         <>
-          <p className="text-sm text-muted-foreground">
-            Showing the newest {data.items.length} of {data.total} traces
+          <DurationChart
+            bars={bars}
+            selectedKey={filters.duration}
+            onSelect={(duration) => setFilters({ duration })}
+          />
+
+          {/* Read out when the results change. */}
+          <p aria-live="polite" className="text-sm text-muted-foreground">
+            {isPlaceholderData
+              ? 'Updating…'
+              : data.total === 0
+                ? 'No traces'
+                : `${firstRow} to ${firstRow + data.items.length - 1} of ${data.total} traces`}
           </p>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b text-muted-foreground">
-                <tr>
-                  <th scope="col" className="py-2 pr-4 font-medium">
-                    Request
-                  </th>
-                  <th scope="col" className="py-2 pr-4 font-medium">
-                    Service
-                  </th>
-                  <th scope="col" className="py-2 pr-4 font-medium">
-                    Status
-                  </th>
-                  <th scope="col" className="py-2 pr-4 text-right font-medium">
-                    Duration
-                  </th>
-                  <th scope="col" className="py-2 pr-4 text-right font-medium">
-                    Spans
-                  </th>
-                  <th scope="col" className="py-2 font-medium">
-                    Started
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {data.items.map((trace) => (
-                  <tr key={trace.id}>
-                    <td className="py-2 pr-4">
-                      <Link
-                        to={`/traces/${trace.id}`}
-                        className="font-medium underline underline-offset-4"
-                      >
-                        {trace.operation}
-                      </Link>
-                    </td>
-                    <td className="py-2 pr-4">{trace.service}</td>
-                    <td className="py-2 pr-4">
-                      <StatusBadge status={trace.status} />
-                    </td>
-                    <td className="py-2 pr-4 text-right tabular-nums">
-                      {formatDuration(trace.durationMs)}
-                    </td>
-                    <td className="py-2 pr-4 text-right tabular-nums">
-                      {trace.spanCount}
-                    </td>
-                    <td className="py-2 whitespace-nowrap tabular-nums">
-                      {formatDateTime(trace.startedAt)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+
+          {data.total === 0 ? (
+            hasFilters ? (
+              <EmptyState
+                icon={SearchX}
+                title="No traces match these filters"
+                description="Try a different search, service, status or duration."
+                action={
+                  <Button variant="outline" onClick={clearFilters}>
+                    Clear filters
+                  </Button>
+                }
+              />
+            ) : (
+              <EmptyState
+                title="No traces yet"
+                description="Traces appear here as requests come in."
+              />
+            )
+          ) : (
+            <>
+              {/* The current rows stay while the next page or filter loads. */}
+              <div aria-busy={isPlaceholderData}>
+                {isWide ? (
+                  <TraceTable traces={data.items} />
+                ) : (
+                  <TraceCards traces={data.items} />
+                )}
+              </div>
+              <Pagination
+                page={page}
+                pageCount={pageCount}
+                onPageChange={setPage}
+              />
+            </>
+          )}
         </>
       )}
     </>

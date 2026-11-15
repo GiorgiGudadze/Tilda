@@ -1,5 +1,7 @@
+import { NuqsAdapter } from 'nuqs/adapters/react-router/v8';
 import type { ReactNode } from 'react';
 import { Link, NavLink, Outlet } from 'react-router';
+import { DemoControl } from '@/app/DemoControl';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useTheme } from '@/lib/use-theme';
 
@@ -39,7 +41,8 @@ export function RootLayout({ children }: { children?: ReactNode }) {
               </NavLink>
             ))}
           </nav>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            <DemoControl />
             <ThemeToggle theme={theme} onToggle={toggleTheme} />
           </div>
         </div>
@@ -49,7 +52,8 @@ export function RootLayout({ children }: { children?: ReactNode }) {
         tabIndex={-1}
         className="mx-auto max-w-6xl space-y-4 px-4 py-6 outline-none sm:px-6"
       >
-        {children ?? <Outlet />}
+        {/* Lets the pages keep their filters in the URL (nuqs). */}
+        <NuqsAdapter>{children ?? <Outlet />}</NuqsAdapter>
       </main>
     </>
   );

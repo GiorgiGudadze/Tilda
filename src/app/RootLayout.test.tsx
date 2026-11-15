@@ -2,7 +2,7 @@ import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { renderApp } from '@/test/render';
-import { setSystemTheme } from '@/test/system-theme';
+import { setSystemTheme } from '@/test/match-media';
 
 const html = document.documentElement;
 

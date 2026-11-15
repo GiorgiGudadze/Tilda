@@ -1,8 +1,10 @@
 import { SearchX } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { DurationBar } from '@/components/DurationBar';
+import { DurationChart } from '@/components/DurationChart';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
+import { Pagination } from '@/components/Pagination';
 import { ServiceLabel } from '@/components/ServiceLabel';
 import {
   SERVICE_BACKGROUNDS,
@@ -12,6 +14,13 @@ import { Skeleton } from '@/components/Skeleton';
 import { SpanBar } from '@/components/SpanBar';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Select } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 
 /** Token groups. Class names are written in full so Tailwind can find them. */
@@ -72,6 +81,55 @@ const SAMPLE_DURATIONS = [
   { label: '0 ms', value: 0 },
 ];
 
+const SAMPLE_BARS = [
+  { key: 'a', label: 'Under 100 ms', count: 62 },
+  { key: 'b', label: '100 to 500 ms', count: 48 },
+  { key: 'c', label: '500 ms to 1 s', count: 0 },
+  { key: 'd', label: '1 to 2 s', count: 17 },
+  { key: 'e', label: '2 to 3 s', count: 1 },
+  { key: 'f', label: '3 s or more', count: 9 },
+];
+
+/** The chart with one bar selected. Click a bar to select or clear it. */
+function ChartDemo() {
+  const [selected, setSelected] = useState<string | null>('d');
+  return (
+    <DurationChart
+      bars={SAMPLE_BARS}
+      selectedKey={selected}
+      onSelect={setSelected}
+    />
+  );
+}
+
+function PaginationDemo({ label }: { label: string }) {
+  const [page, setPage] = useState(1);
+  return (
+    <Pagination
+      page={page}
+      pageCount={3}
+      onPageChange={setPage}
+      label={label}
+    />
+  );
+}
+
+/** A sample control with its label above it. */
+function SampleField({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+      {label}
+      {children}
+    </label>
+  );
+}
+
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="space-y-3">
@@ -81,8 +139,17 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-/** Renders the same content twice: once in the light theme, once in the dark. */
-function BothThemes({ children }: { children: ReactNode }) {
+type ThemeName = 'light' | 'dark';
+
+/**
+ * Renders the same content twice: once in the light theme, once in the dark.
+ * Pass a function when the content needs to know which theme it is in.
+ */
+function BothThemes({
+  children,
+}: {
+  children: ReactNode | ((theme: ThemeName) => ReactNode);
+}) {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       {(['light', 'dark'] as const).map((theme) => (
@@ -96,7 +163,7 @@ function BothThemes({ children }: { children: ReactNode }) {
           <p className="text-xs font-medium text-muted-foreground">
             {theme === 'light' ? 'Light theme' : 'Dark theme'}
           </p>
-          {children}
+          {typeof children === 'function' ? children(theme) : children}
         </div>
       ))}
     </div>
@@ -223,6 +290,64 @@ export function DesignPage() {
             ))}
           </ul>
         </BothThemes>
+      </Section>
+
+      <Section title="Input and select">
+        <BothThemes>
+          <div className="grid grid-cols-2 gap-3">
+            <SampleField label="Empty">
+              <Input type="search" placeholder="Operation or trace ID" />
+            </SampleField>
+            <SampleField label="Filled">
+              <Input defaultValue="checkout" />
+            </SampleField>
+            <SampleField label="Invalid">
+              <Input defaultValue="A cause that is far too long" aria-invalid />
+            </SampleField>
+            <SampleField label="Disabled">
+              <Input defaultValue="checkout" disabled />
+            </SampleField>
+            <SampleField label="Select">
+              <Select defaultValue="newest">
+                <option value="newest">Newest first</option>
+                <option value="slowest">Slowest first</option>
+              </Select>
+            </SampleField>
+            <SampleField label="Select, disabled">
+              <Select defaultValue="newest" disabled>
+                <option value="newest">Newest first</option>
+              </Select>
+            </SampleField>
+          </div>
+        </BothThemes>
+      </Section>
+
+      <Section title="Duration chart">
+        <BothThemes>
+          <ChartDemo />
+        </BothThemes>
+      </Section>
+
+      <Section title="Pagination">
+        <BothThemes>
+          {(theme) => <PaginationDemo label={`Pagination, ${theme} theme`} />}
+        </BothThemes>
+      </Section>
+
+      <Section title="Popover">
+        <p className="max-w-prose text-sm text-muted-foreground">
+          A popover opens outside the box it was called from, so it always wears
+          the theme of the page.
+        </p>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline">Open the popover</Button>
+          </PopoverTrigger>
+          <PopoverContent aria-label="Sample popover" className="space-y-2">
+            <p className="font-medium">A popover</p>
+            <p>Escape or a click outside closes it.</p>
+          </PopoverContent>
+        </Popover>
       </Section>
 
       <Section title="Empty state">
