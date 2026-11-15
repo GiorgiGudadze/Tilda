@@ -1,0 +1,20 @@
+import { Navigate, type RouteObject } from 'react-router';
+import { NotFoundPage } from '@/app/NotFoundPage';
+import { RootLayout } from '@/app/RootLayout';
+import { RouteError } from '@/app/RouteError';
+import { TraceDetailPage } from '@/features/traces/TraceDetailPage';
+import { TracesPage } from '@/features/traces/TracesPage';
+
+export const routes: RouteObject[] = [
+  {
+    path: '/',
+    element: <RootLayout />,
+    errorElement: <RouteError />,
+    children: [
+      { index: true, element: <Navigate to="/traces" replace /> },
+      { path: 'traces', element: <TracesPage /> },
+      { path: 'traces/:id', element: <TraceDetailPage /> },
+      { path: '*', element: <NotFoundPage /> },
+    ],
+  },
+];
