@@ -1,4 +1,5 @@
 import { Ban, Check, Pencil } from 'lucide-react';
+import { ConfidenceBadge } from '@/components/ConfidenceBadge';
 import type { Decision } from '@/features/investigation/schemas';
 
 const LABELS = {
@@ -24,6 +25,14 @@ export function DecisionSummary({ decision }: { decision: Decision | null }) {
         <Icon aria-hidden="true" className="size-3.5 shrink-0" />
         {text}
       </p>
+      {/* The AI's confidence is about the AI's text. It is shown beside the
+          cause only when that text is the cause. */}
+      {decision.kind === 'accepted' && decision.confidence && (
+        <ConfidenceBadge
+          confidence={decision.confidence}
+          basis={decision.basis}
+        />
+      )}
     </div>
   );
 }

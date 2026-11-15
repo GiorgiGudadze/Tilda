@@ -119,6 +119,39 @@ One path through every layer, before any polish: schema, seeded data, mock API, 
 - **A known limit of optimistic updates:** a reload within a second of a change can lose it, because the request has not reached the server yet.
 - **Left out:** the Open/Resolved filter, which the plan lists as a stretch.
 
+### Step 7: the suggested cause
+
+- **The model is simulated.** There is no AI behind the suggestion. Seven fixed rules in `src/mocks/suggest.ts`, checked in order, decide the text and the confidence. "Slow" means 1 s or more: one constant, and an assumption. A real system would compare a request with the normal time for its operation.
+
+  | #   | When                                                   | Confidence | Basis shown                                       |
+  | --- | ------------------------------------------------------ | ---------- | ------------------------------------------------- |
+  | 1   | The request failed, and the failure began in one place | High       | "error reached the request"                       |
+  | 2   | The request failed, and failures began in several      | Medium     | "error reached the request, several spans failed" |
+  | 3   | Slow, and one span's self time is 60% or more          | High       | "78% of trace time"                               |
+  | 4   | Slow, and one span's self time is 30% to under 60%     | Medium     | "42% of trace time"                               |
+  | 5   | A span failed, but the request succeeded               | Medium     | "a span failed, the request succeeded"            |
+  | 6   | Slow, and none of the above                            | Low        | "largest span is 18% of trace time"               |
+  | 7   | Not slow, and nothing failed                           | None       | No claim is made                                  |
+
+- **The rules are one table-driven test:** every rule, both boundaries (exactly 60% is high, exactly 30% is medium), the tie (the earlier span wins), and the order between rules.
+- **The text says where, never why.** The data shows which span failed or was slow. It does not show the reason, so the suggestion does not guess one. A test checks that no text contains "because".
+- **Where the rules are wrong.**
+  - _Timeouts._ When a caller gives up on a slow child, the caller is the deepest failed span, so rule 1 names the caller. The real cause is the slow child, which never failed.
+  - _Many identical queries._ Twenty queries of 4% each add up to 80%, but no single span stands out, so rule 6 says so. Grouping spans by operation would catch it.
+- **A suggestion is never the conclusion by itself.** It sits in a card with a dashed frame, under the heading "Suggested cause", until a person accepts it, edits it or rejects it. Only then is there a "Cause", labelled with who decided.
+- **The claim links to its source.** The spans a suggestion is based on are listed in the panel as links and marked "Evidence" in the waterfall. A link opens the span's details and moves focus to its row. It is the same pattern as an AI-extracted value that links to its place in the source document.
+- **The confidence shows its basis.** "High confidence. Based on: 78% of trace time". The badge is not coloured: a green "high" would read as "correct".
+- **On low confidence, Edit is the primary button**, not Accept. When nothing looks wrong (rule 7) there is nothing to accept or reject, so the only button is "Write a cause yourself".
+- **The answer is streamed** as JSON lines: one `meta` line (the outcome), the text a word at a time, then `done`. Every line is checked with zod. `createLineSplitter` holds back a line that is cut between two chunks; the mock cuts the first line in two on purpose, so that path always runs.
+- **The stream's life is a reducer** (`idle`, `streaming`, `done`, `error`, `cancelled`), with its own tests. A stream that closes without its `done` line is an error, so half a suggestion is never offered for a decision.
+- **The request is aborted** by Stop, and when the user leaves the page or unpins the trace. A test checks that the server sees the cancel.
+- **The decision is saved on the pin, optimistically,** with the same rollback and toast as the other pin changes. If the save fails, the suggestion is back for review without asking again.
+- **"Change decision" does not ask the AI again.** The decision keeps the AI's original text, confidence, basis and evidence, and the review is rebuilt from them.
+- **The AI's confidence stays with the AI's text.** It is shown beside an accepted cause. For an edited cause it is behind "View original AI text", because the user's own words were never rated.
+- **Saving the AI's text unchanged from the Edit form is recorded as accepted,** so nothing is labelled "edited by you" that was not edited.
+- **Screen readers hear the suggestion once.** A live region says "Writing a suggestion…" at the start and the whole text when it is complete, not word by word.
+- **One addition to the plan:** the decision also stores the `basis`. Without it, "Change decision" could not show what the confidence was based on.
+
 ## Time spent
 
 | Step | Time |
@@ -129,3 +162,4 @@ One path through every layer, before any polish: schema, seeded data, mock API, 
 | 4    |      |
 | 5    |      |
 | 6    |      |
+| 7    |      |

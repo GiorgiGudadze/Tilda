@@ -57,7 +57,7 @@ describe('Trace page', () => {
 
     const names = await findRowNames();
     expect(names.filter((name) => name?.includes('slowest span'))).toEqual([
-      'postgres, SELECT products WHERE name ILIKE ?, 290 ms, OK, slowest span',
+      'postgres, SELECT products WHERE name ILIKE ?, 296 ms, OK, slowest span',
     ]);
   });
 
@@ -114,7 +114,7 @@ describe('Span details', () => {
     await user.click(await screen.findByRole('button', { name: ORDERS }));
 
     // 2,842 ms long, of which 2,530 ms is spent in its three children.
-    expect(screen.getByText('312 ms, 11% of the trace')).toBeVisible();
+    expect(screen.getByText('312 ms, 10% of the trace')).toBeVisible();
     expect(screen.getByText('Child spans').nextSibling).toHaveTextContent('3');
   });
 

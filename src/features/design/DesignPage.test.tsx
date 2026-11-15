@@ -15,6 +15,8 @@ describe('Design page', () => {
       'Colour tokens',
       'Button',
       'Status badge',
+      'Confidence badge',
+      'Suggestion card',
       'Service label',
       'Span bar and timeline ruler',
       'Duration bar',

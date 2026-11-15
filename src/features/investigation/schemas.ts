@@ -19,6 +19,8 @@ export const decisionSchema = z.object({
   finalText: z.string(),
   /** `null` when the AI found nothing wrong and so made no claim. */
   confidence: confidenceSchema.nullable(),
+  /** What the confidence is based on, as the AI gave it. `null` with no claim. */
+  basis: z.string().nullable(),
   /** The spans the suggestion is based on. */
   evidenceSpanIds: z.array(z.string()),
 });

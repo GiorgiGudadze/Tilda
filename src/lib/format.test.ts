@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatDateTime, formatDuration } from '@/lib/format';
+import { formatDateTime, formatDuration, formatShare } from '@/lib/format';
 
 describe('formatDuration', () => {
   it.each([
@@ -19,5 +19,19 @@ describe('formatDateTime', () => {
     expect(formatDateTime('2026-11-14T11:58:00.000Z')).toBe(
       '14 Nov, 11:58:00 UTC',
     );
+  });
+});
+
+describe('formatShare', () => {
+  it.each([
+    [2262, 2900, '78%'],
+    [600, 1000, '60%'],
+    [599, 1000, '59%'],
+    [299, 1000, '29%'],
+    [0, 1000, '0%'],
+    [1000, 1000, '100%'],
+    [5, 0, '500%'],
+  ])('writes %d of %d as "%s"', (part, whole, expected) => {
+    expect(formatShare(part, whole)).toBe(expected);
   });
 });

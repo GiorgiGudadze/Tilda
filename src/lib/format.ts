@@ -20,3 +20,12 @@ const dateTimeFormat = new Intl.DateTimeFormat('en-GB', {
 export function formatDateTime(iso: string): string {
   return `${dateTimeFormat.format(new Date(iso))} UTC`;
 }
+
+/**
+ * A part of a whole as a whole number of percent: "78%". It rounds down, so
+ * a share just under a limit is never shown as having reached it (59.9% is
+ * "59%", not "60%").
+ */
+export function formatShare(part: number, whole: number): string {
+  return `${Math.floor((part * 100) / Math.max(whole, 1))}%`;
+}

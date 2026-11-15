@@ -1,4 +1,4 @@
-import { Hourglass } from 'lucide-react';
+import { Crosshair, Hourglass } from 'lucide-react';
 import { useId } from 'react';
 import { ServiceLabel } from '@/components/ServiceLabel';
 import { SpanBar } from '@/components/SpanBar';
@@ -8,6 +8,7 @@ import type { Span } from '@/features/traces/schemas';
 import { selfTimes, slowestSpanId } from '@/features/traces/self-time';
 import { serviceColor } from '@/features/traces/service-colors';
 import { SpanDetails } from '@/features/traces/SpanDetails';
+import { spanRowId } from '@/features/traces/span-row-id';
 import { flattenSpans } from '@/features/traces/span-tree';
 import { formatDuration } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -19,6 +20,8 @@ interface WaterfallProps {
   selectedSpanId: string | null;
   /** Called with a span's ID, or `null` when the open row is closed. */
   onSelectSpan: (id: string | null) => void;
+  /** The spans a suggested cause is based on. Their rows are marked. */
+  evidenceSpanIds?: string[];
 }
 
 /**
@@ -39,6 +42,7 @@ export function Waterfall({
   totalMs,
   selectedSpanId,
   onSelectSpan,
+  evidenceSpanIds = [],
 }: WaterfallProps) {
   const detailsId = useId();
   const rows = flattenSpans(spans);
@@ -63,12 +67,14 @@ export function Waterfall({
           const selected = span.id === selectedSpanId;
           const failed = span.status === 'error';
           const isSlowest = span.id === slowestId;
+          const isEvidence = evidenceSpanIds.includes(span.id);
           const duration = formatDuration(span.durationMs);
 
           return (
             <li key={span.id}>
               <button
                 type="button"
+                id={spanRowId(span.id)}
                 aria-expanded={selected}
                 aria-controls={selected ? detailsId : undefined}
                 onClick={() => onSelectSpan(selected ? null : span.id)}
@@ -82,7 +88,7 @@ export function Waterfall({
               >
                 {/* The whole name in one piece, for screen readers. */}
                 <span className="sr-only">
-                  {`${span.service}, ${span.operation}, ${duration}, ${failed ? 'failed' : 'OK'}${isSlowest ? ', slowest span' : ''}`}
+                  {`${span.service}, ${span.operation}, ${duration}, ${failed ? 'failed' : 'OK'}${isSlowest ? ', slowest span' : ''}${isEvidence ? ', evidence for the suggested cause' : ''}`}
                 </span>
 
                 <span
@@ -98,7 +104,13 @@ export function Waterfall({
                       {span.operation}
                     </span>
                   </span>
-                  <span className="flex shrink-0 items-center justify-end gap-2 sm:order-3">
+                  <span className="flex shrink-0 flex-wrap items-center justify-end gap-x-2 sm:order-3">
+                    {isEvidence && (
+                      <span className="inline-flex items-center gap-1 font-medium whitespace-nowrap">
+                        <Crosshair className="size-3.5 shrink-0" />
+                        Evidence
+                      </span>
+                    )}
                     {isSlowest && (
                       <span className="inline-flex items-center gap-1 font-medium whitespace-nowrap">
                         <Hourglass className="size-3.5 shrink-0" />

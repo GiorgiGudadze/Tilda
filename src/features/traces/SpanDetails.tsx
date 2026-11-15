@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { StatusBadge } from '@/components/StatusBadge';
 import type { Span } from '@/features/traces/schemas';
-import { formatDuration } from '@/lib/format';
+import { formatDuration, formatShare } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 interface SpanDetailsProps {
@@ -47,8 +47,6 @@ export function SpanDetails({
   isSlowest,
   onSelectSpan,
 }: SpanDetailsProps) {
-  const share = Math.round((selfMs / Math.max(totalMs, 1)) * 100);
-
   return (
     <div id={id} className="space-y-3 border-t bg-muted px-3 py-3">
       <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
@@ -69,7 +67,8 @@ export function SpanDetails({
         </Item>
         <Item label="Self time">
           <span className="tabular-nums">
-            {formatDuration(selfMs)}, {share}% of the trace
+            {formatDuration(selfMs)}, {formatShare(selfMs, totalMs)} of the
+            trace
           </span>
         </Item>
         <Item label="Starts at">

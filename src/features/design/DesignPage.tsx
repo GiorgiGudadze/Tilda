@@ -1,6 +1,7 @@
 import { SearchX } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { toast } from 'sonner';
+import { ConfidenceBadge } from '@/components/ConfidenceBadge';
 import { DurationBar } from '@/components/DurationBar';
 import { DurationChart } from '@/components/DurationChart';
 import { EmptyState } from '@/components/EmptyState';
@@ -14,6 +15,7 @@ import {
 import { Skeleton } from '@/components/Skeleton';
 import { SpanBar } from '@/components/SpanBar';
 import { StatusBadge } from '@/components/StatusBadge';
+import { SuggestionCard } from '@/components/SuggestionCard';
 import { TimelineRuler } from '@/components/TimelineRuler';
 import {
   AlertDialog,
@@ -248,6 +250,44 @@ export function DesignPage() {
             <StatusBadge status="error" />
             <StatusBadge status="error" label="Failed" />
           </div>
+        </BothThemes>
+      </Section>
+
+      <Section title="Confidence badge">
+        <BothThemes>
+          <div className="space-y-2 text-sm">
+            <ConfidenceBadge confidence="high" basis="78% of trace time" />
+            <ConfidenceBadge
+              confidence="medium"
+              basis="a span failed, the request succeeded"
+            />
+            <ConfidenceBadge
+              confidence="low"
+              basis="largest span is 18% of trace time"
+            />
+            <ConfidenceBadge confidence="high" />
+          </div>
+        </BothThemes>
+      </Section>
+
+      <Section title="Suggestion card">
+        <BothThemes>
+          <SuggestionCard title="Suggested cause" variant="suggestion">
+            <p>
+              Most of the time is spent in postgres: SELECT orders WHERE user_id
+              = ?.
+            </p>
+            <ConfidenceBadge confidence="high" basis="78% of trace time" />
+            <div className="flex flex-wrap gap-2">
+              <Button>Accept</Button>
+              <Button variant="outline">Edit</Button>
+              <Button variant="outline">Reject</Button>
+            </div>
+          </SuggestionCard>
+          <SuggestionCard title="Cause" variant="decided">
+            <p>A missing index on orders.user_id.</p>
+            <Button variant="outline">Change decision</Button>
+          </SuggestionCard>
         </BothThemes>
       </Section>
 

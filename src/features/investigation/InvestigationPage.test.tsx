@@ -25,6 +25,7 @@ function decision(changes: Partial<Decision>): Decision {
     originalText: 'The error first appears in the card acquirer call.',
     finalText: 'The error first appears in the card acquirer call.',
     confidence: 'high',
+    basis: 'error reached the request',
     evidenceSpanIds: ['s10'],
     ...changes,
   };

@@ -1,5 +1,6 @@
 import { delay, http, HttpResponse } from 'msw';
 import { pinChangesSchema, type Pin } from '@/features/investigation/schemas';
+import type { SuggestionEvent } from '@/features/suggestion/schemas';
 import { countBuckets } from '@/features/traces/duration-buckets';
 import {
   traceListParamsSchema,
@@ -10,6 +11,7 @@ import { getDemoMode } from '@/mocks/demo';
 import { deletePin, putPin, readPins, type StoredPin } from '@/mocks/pins';
 import { listServices, queryTraces } from '@/mocks/query-traces';
 import { createDataset } from '@/mocks/seed';
+import { suggestCause } from '@/mocks/suggest';
 
 const dataset = createDataset();
 
@@ -25,6 +27,53 @@ function latency() {
     return delay(0);
   }
   return delay(getDemoMode() === 'slow' ? 3000 : 200 + Math.random() * 600);
+}
+
+/** The wait between two pieces of a streamed answer. Tests skip it. */
+function streamPause() {
+  if (import.meta.env.MODE === 'test') {
+    return delay(0);
+  }
+  return delay(getDemoMode() === 'slow' ? 250 : 50);
+}
+
+/**
+ * A suggestion as a stream of JSON lines: one `meta` line, the text a word
+ * at a time, then `done`. This is how a real model answers.
+ */
+function streamSuggestion(events: SuggestionEvent[]): ReadableStream {
+  const encoder = new TextEncoder();
+  const lines = events.map((event) => `${JSON.stringify(event)}\n`);
+  let cancelled = false;
+
+  return new ReadableStream<Uint8Array>({
+    async start(controller) {
+      for (const [index, line] of lines.entries()) {
+        if (cancelled) {
+          return;
+        }
+        if (index === 0) {
+          // A network can cut a line anywhere. The first line is sent in two
+          // pieces on purpose, so the reader's handling of that is always
+          // exercised.
+          const middle = Math.floor(line.length / 2);
+          controller.enqueue(encoder.encode(line.slice(0, middle)));
+          await streamPause();
+          controller.enqueue(encoder.encode(line.slice(middle)));
+        } else {
+          controller.enqueue(encoder.encode(line));
+        }
+        await streamPause();
+      }
+      if (!cancelled) {
+        controller.close();
+      }
+    },
+    // The reader went away: the user pressed Stop or left the page.
+    cancel() {
+      cancelled = true;
+    },
+  });
 }
 
 /** The answer of every endpoint while the Demo control is set to errors. */
@@ -75,6 +124,30 @@ export const handlers = [
     }
     const body: TraceDetail = { trace, spans };
     return HttpResponse.json(body);
+  }),
+
+  http.post('/api/traces/:id/suggestion', async ({ params }) => {
+    await latency();
+    const failure = demoError();
+    if (failure) {
+      return failure;
+    }
+    const spans = dataset.spansByTraceId.get(String(params.id));
+    if (!spans) {
+      return new HttpResponse(null, { status: 404 });
+    }
+
+    const { outcome, text } = suggestCause(spans);
+    // Each word keeps the space after it, so the pieces join back exactly.
+    const words = text.match(/\S+\s*/g) ?? [];
+    return new HttpResponse(
+      streamSuggestion([
+        { type: 'meta', outcome },
+        ...words.map((word) => ({ type: 'text' as const, text: word })),
+        { type: 'done' },
+      ]),
+      { headers: { 'Content-Type': 'application/x-ndjson' } },
+    );
   }),
 
   http.get('/api/investigation', async () => {

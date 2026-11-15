@@ -475,7 +475,7 @@ const FIXED_TRACES: FixedTrace[] = [
       ],
     },
   },
-  // Slow, but the largest step is only 18% of the time (290 of 1,640 ms).
+  // Slow, but the largest step is only 18% of the time (296 of 1,640 ms).
   {
     id: SEEDED_TRACE_IDS.uncertain,
     minutesAgo: 11,
@@ -510,7 +510,7 @@ const FIXED_TRACES: FixedTrace[] = [
               service: 'postgres',
               operation: 'SELECT products WHERE name ILIKE ?',
               from: 410,
-              to: 700,
+              to: 706,
             },
             {
               service: 'postgres',

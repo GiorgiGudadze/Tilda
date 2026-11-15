@@ -3,7 +3,9 @@ import { Link, useParams } from 'react-router';
 import { ErrorState } from '@/components/ErrorState';
 import { Skeleton } from '@/components/Skeleton';
 import { StatusBadge } from '@/components/StatusBadge';
+import { usePins } from '@/features/investigation/hooks';
 import { PinControls } from '@/features/investigation/PinControls';
+import { SuggestionWorkspace } from '@/features/suggestion/SuggestionWorkspace';
 import { useTrace } from '@/features/traces/hooks';
 import { Waterfall } from '@/features/traces/Waterfall';
 import { ApiError } from '@/lib/api';
@@ -14,6 +16,7 @@ export function TraceDetailPage() {
   const { data, isPending, error, refetch } = useTrace(id);
   // The open span is in the URL, so a link can point at one step.
   const [spanParam, setSpanParam] = useQueryState('span', parseAsString);
+  const { data: pins } = usePins();
 
   const backLink = (
     <Link to="/traces" className="text-sm underline underline-offset-4">
@@ -58,6 +61,8 @@ export function TraceDetailPage() {
   const selectedSpanId = spans.some((span) => span.id === spanParam)
     ? spanParam
     : null;
+  const selectSpan = (spanId: string | null) => void setSpanParam(spanId);
+  const pin = pins?.find((item) => item.traceId === trace.id);
 
   return (
     <>
@@ -103,12 +108,22 @@ export function TraceDetailPage() {
           details.
         </p>
       </div>
-      <Waterfall
-        spans={spans}
-        totalMs={trace.durationMs}
-        selectedSpanId={selectedSpanId}
-        onSelectSpan={(spanId) => void setSpanParam(spanId)}
-      />
+      {/* A pinned trace gets the suggestion panel beside its waterfall. */}
+      {pin ? (
+        <SuggestionWorkspace
+          pin={pin}
+          spans={spans}
+          selectedSpanId={selectedSpanId}
+          onSelectSpan={selectSpan}
+        />
+      ) : (
+        <Waterfall
+          spans={spans}
+          totalMs={trace.durationMs}
+          selectedSpanId={selectedSpanId}
+          onSelectSpan={selectSpan}
+        />
+      )}
     </>
   );
 }
