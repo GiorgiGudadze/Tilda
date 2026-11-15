@@ -1,3 +1,4 @@
+import { Pin } from 'lucide-react';
 import { Link } from 'react-router';
 import { DurationBar } from '@/components/DurationBar';
 import { Skeleton } from '@/components/Skeleton';
@@ -7,6 +8,18 @@ import { formatDateTime, formatDuration } from '@/lib/format';
 
 interface TraceResultsProps {
   traces: TraceSummary[];
+  /** IDs of the traces the user has pinned. */
+  pinnedIds: Set<string>;
+}
+
+/** Marks a pinned trace with an icon and a word. */
+function PinnedMarker() {
+  return (
+    <span className="inline-flex items-center gap-1 whitespace-nowrap text-muted-foreground">
+      <Pin aria-hidden="true" className="size-3.5 shrink-0" />
+      Pinned
+    </span>
+  );
 }
 
 const linkClass = 'font-medium underline underline-offset-4';
@@ -17,7 +30,7 @@ function longest(traces: TraceSummary[]): number {
 }
 
 /** The results as a table, for screens wide enough for one. */
-export function TraceTable({ traces }: TraceResultsProps) {
+export function TraceTable({ traces, pinnedIds }: TraceResultsProps) {
   const max = longest(traces);
   return (
     <table className="w-full text-left text-sm">
@@ -48,6 +61,12 @@ export function TraceTable({ traces }: TraceResultsProps) {
                 {trace.operation}
               </Link>{' '}
               <span className="text-muted-foreground">{trace.service}</span>
+              {pinnedIds.has(trace.id) && (
+                <>
+                  {' '}
+                  <PinnedMarker />
+                </>
+              )}
             </td>
             <td className="py-1.5 pr-4">
               <StatusBadge status={trace.status} />
@@ -78,7 +97,7 @@ export function TraceTable({ traces }: TraceResultsProps) {
 }
 
 /** The same results as a list of cards, for phones. */
-export function TraceCards({ traces }: TraceResultsProps) {
+export function TraceCards({ traces, pinnedIds }: TraceResultsProps) {
   const max = longest(traces);
   return (
     <ul className="space-y-2 text-sm">
@@ -104,6 +123,7 @@ export function TraceCards({ traces }: TraceResultsProps) {
             {trace.service}, {trace.spanCount} spans,{' '}
             {formatDateTime(trace.startedAt)}
           </p>
+          {pinnedIds.has(trace.id) && <PinnedMarker />}
         </li>
       ))}
     </ul>

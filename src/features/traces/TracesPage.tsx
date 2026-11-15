@@ -5,6 +5,7 @@ import { ErrorState } from '@/components/ErrorState';
 import { Pagination } from '@/components/Pagination';
 import { Skeleton } from '@/components/Skeleton';
 import { Button } from '@/components/ui/button';
+import { usePins } from '@/features/investigation/hooks';
 import { DURATION_BUCKETS } from '@/features/traces/duration-buckets';
 import { useTraceFilters } from '@/features/traces/filters';
 import { useTraces } from '@/features/traces/hooks';
@@ -30,6 +31,10 @@ export function TracesPage() {
     ...filters,
     q: debouncedQ,
   });
+
+  // The pinned marker is worked out here from the pins, not sent with the list.
+  const { data: pins = [] } = usePins();
+  const pinnedIds = new Set(pins.map((pin) => pin.traceId));
 
   // A table needs width. Phones get cards.
   const isWide = useMediaQuery('(min-width: 640px)');
@@ -105,9 +110,9 @@ export function TracesPage() {
               {/* The current rows stay while the next page or filter loads. */}
               <div aria-busy={isPlaceholderData}>
                 {isWide ? (
-                  <TraceTable traces={data.items} />
+                  <TraceTable traces={data.items} pinnedIds={pinnedIds} />
                 ) : (
-                  <TraceCards traces={data.items} />
+                  <TraceCards traces={data.items} pinnedIds={pinnedIds} />
                 )}
               </div>
               <Pagination

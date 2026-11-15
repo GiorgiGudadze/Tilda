@@ -101,6 +101,24 @@ One path through every layer, before any polish: schema, seeded data, mock API, 
 - **Phone layout with one set of elements.** A row is two lines on a phone (name and markers, then bar and duration) and one line on a wide screen. The two line wrappers become `display: contents` on wide screens, so the same four elements drop into one grid. Every bar has the same width on a phone, so the bars stay comparable.
 - **Span details show what the data has:** status, duration, self time and its share of the trace, start offset, parent, number of children. Spans carry no attributes (query text, error message), so none are invented.
 
+### Step 6: pins and the Investigation page
+
+- **A pin is the record of one trace:** its status (open or resolved), a note, and the decision about its cause. The decision is part of the schema now; step 7 adds the flow that creates one.
+- **One endpoint writes a pin.** `PUT /api/investigation/:traceId` creates the pin, or changes only the fields it is sent. `DELETE` removes it. The mock keeps pins in localStorage, so they survive a reload, and joins the trace summary when it lists them.
+- **Pin, Resolve, Reopen and Unpin are optimistic.** The change shows at once. If the request fails, the cached list is put back as it was and a toast says what was undone. One small helper (`changePinsNow`) does the cancel, snapshot and write for all of them. TanStack Query owns this, so `useOptimistic` is not used.
+- **Two races, found by tests and fixed.** The mock answers after a random delay, so requests can arrive out of order, as on a real network.
+  - _A slow save overwrote a later one._ Pinning a trace and then saving its note sent two full copies of the pin; when the first arrived last, the note was gone. Now a save sends only the fields it changes, and every write to pins shares one queue (`scope` in TanStack Query), so writes reach the server one at a time, in the order they were made.
+  - _A refetch hid a change that was still on its way._ Opening the Investigation page loaded the pins while the pin's own save was in flight, and the older answer removed it from the screen. Pins change only through this app's writes, and each write loads them again when the last one finishes, so the pins query no longer refetches by itself (`staleTime: Infinity`). The cost: a change made in another tab shows only after a write or a reload.
+- **The note is not optimistic, on purpose.** It has a Save button and its own states: "Saving…", "Saved", or an inline error with Retry that keeps the text. A person who typed a note needs to know it reached the server, not to be told so early.
+- **An open form is never reset by a refetch.** The note's text is local state that starts from the saved note and is never copied from the server again. A test changes the pin's status while a note is half typed and checks the text is still there.
+- **Note validation.** A note is optional, so an empty one can be saved to clear it. The limit is 500 characters. Past it, the field is marked invalid and its error text is tied to it with `aria-describedby`; Save moves focus to the field instead of sending.
+- **Unpin asks first only when there is something to lose:** a note or a recorded cause. The dialog names what will be deleted. An empty pin is removed straight away.
+- **The pinned marker on the list is derived on the client** from the pins query. The list endpoint knows nothing about pins.
+- **Buttons that repeat on a page name their trace** ("Unpin POST /checkout"), so a screen reader user can tell them apart.
+- **No primary button on the Investigation page.** With several cards, no single action is the main one. The primary button of the trace page is "Pin trace".
+- **A known limit of optimistic updates:** a reload within a second of a change can lose it, because the request has not reached the server yet.
+- **Left out:** the Open/Resolved filter, which the plan lists as a stretch.
+
 ## Time spent
 
 | Step | Time |
@@ -110,3 +128,4 @@ One path through every layer, before any polish: schema, seeded data, mock API, 
 | 3    |      |
 | 4    |      |
 | 5    |      |
+| 6    |      |

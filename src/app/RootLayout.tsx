@@ -3,10 +3,12 @@ import type { ReactNode } from 'react';
 import { Link, NavLink, Outlet } from 'react-router';
 import { DemoControl } from '@/app/DemoControl';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { Toaster } from '@/components/ui/sonner';
 import { useTheme } from '@/lib/use-theme';
 
 const NAV_LINKS = [
   { to: '/traces', label: 'Traces' },
+  { to: '/investigation', label: 'Investigation' },
   { to: '/design', label: 'Design' },
 ];
 
@@ -55,6 +57,7 @@ export function RootLayout({ children }: { children?: ReactNode }) {
         {/* Lets the pages keep their filters in the URL (nuqs). */}
         <NuqsAdapter>{children ?? <Outlet />}</NuqsAdapter>
       </main>
+      <Toaster theme={theme} />
     </>
   );
 }

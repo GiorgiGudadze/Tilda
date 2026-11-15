@@ -148,3 +148,52 @@ test('the waterfall fits a phone, in the dark theme too', async ({ page }) => {
   expect(overflow).toBeLessThanOrEqual(0);
   await expectNoAxeViolations(page);
 });
+
+test('a pinned trace is kept on the Investigation page with its note', async ({
+  page,
+}) => {
+  await page.goto('/traces/a1b2c3d4e5f60002');
+  await page.getByRole('button', { name: 'Pin trace' }).click();
+  await expect(page.getByText('Pinned', { exact: true })).toBeVisible();
+  await expectNoAxeViolations(page);
+
+  await page.getByRole('link', { name: 'Open investigation' }).click();
+  await page
+    .getByRole('textbox', { name: 'Note for POST /checkout' })
+    .fill('Acquirer timeouts since 11:50.');
+  await page.getByRole('button', { name: 'Save note' }).click();
+  await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+  // "Resolved" shows before the server answers, so wait for the answer too.
+  // A reload before it would lose the change.
+  const saved = page.waitForResponse(
+    (response) =>
+      response.url().includes('/api/investigation/') &&
+      response.request().method() === 'PUT',
+  );
+  await page
+    .getByRole('button', { name: 'Mark as resolved POST /checkout' })
+    .click();
+  await expect(page.getByText('Resolved', { exact: true })).toBeVisible();
+  await saved;
+  await expectNoAxeViolations(page);
+
+  // The pin, its note and its status survive a reload.
+  await page.reload();
+  await expect(
+    page.getByRole('textbox', { name: 'Note for POST /checkout' }),
+  ).toHaveValue('Acquirer timeouts since 11:50.');
+  await expect(page.getByText('Resolved', { exact: true })).toBeVisible();
+
+  // The list marks the pinned trace.
+  await page.getByRole('link', { name: 'Traces', exact: true }).click();
+  await expect(page.getByText('Pinned', { exact: true })).toHaveCount(1);
+
+  // Unpinning asks first, because the note would be lost.
+  await page.getByRole('link', { name: 'Investigation' }).click();
+  await page.getByRole('button', { name: 'Unpin POST /checkout' }).click();
+  await expect(page.getByRole('alertdialog')).toBeVisible();
+  await expectNoAxeViolations(page);
+  await page.getByRole('button', { name: 'Unpin and delete' }).click();
+  await expect(page.getByText('Nothing pinned yet')).toBeVisible();
+  await expectNoAxeViolations(page);
+});

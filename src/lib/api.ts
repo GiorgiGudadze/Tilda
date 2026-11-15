@@ -23,3 +23,28 @@ export async function getJson<T>(
   }
   return schema.parse(await response.json());
 }
+
+/** PUT a JSON body and check the shape of the answer. */
+export async function putJson<T>(
+  path: string,
+  body: unknown,
+  schema: z.ZodType<T>,
+): Promise<T> {
+  const response = await fetch(path, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw new ApiError(response.status);
+  }
+  return schema.parse(await response.json());
+}
+
+/** DELETE a resource. There is no body to check. */
+export async function deleteResource(path: string): Promise<void> {
+  const response = await fetch(path, { method: 'DELETE' });
+  if (!response.ok) {
+    throw new ApiError(response.status);
+  }
+}

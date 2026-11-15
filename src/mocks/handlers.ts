@@ -1,4 +1,5 @@
 import { delay, http, HttpResponse } from 'msw';
+import { pinChangesSchema, type Pin } from '@/features/investigation/schemas';
 import { countBuckets } from '@/features/traces/duration-buckets';
 import {
   traceListParamsSchema,
@@ -6,6 +7,7 @@ import {
   type TraceList,
 } from '@/features/traces/schemas';
 import { getDemoMode } from '@/mocks/demo';
+import { deletePin, putPin, readPins, type StoredPin } from '@/mocks/pins';
 import { listServices, queryTraces } from '@/mocks/query-traces';
 import { createDataset } from '@/mocks/seed';
 
@@ -30,6 +32,12 @@ function demoError() {
   return getDemoMode() === 'error'
     ? new HttpResponse(null, { status: 500 })
     : undefined;
+}
+
+/** Adds the trace summary to a stored pin. A pin of a missing trace is dropped. */
+function withTrace(pin: StoredPin): Pin | undefined {
+  const trace = dataset.traces.find((item) => item.id === pin.traceId);
+  return trace ? { ...pin, trace } : undefined;
 }
 
 export const handlers = [
@@ -67,6 +75,49 @@ export const handlers = [
     }
     const body: TraceDetail = { trace, spans };
     return HttpResponse.json(body);
+  }),
+
+  http.get('/api/investigation', async () => {
+    await latency();
+    const failure = demoError();
+    if (failure) {
+      return failure;
+    }
+    const pins =
+      getDemoMode() === 'empty'
+        ? []
+        : readPins()
+            .map(withTrace)
+            .filter((pin) => pin !== undefined);
+    return HttpResponse.json(pins);
+  }),
+
+  http.put('/api/investigation/:traceId', async ({ params, request }) => {
+    await latency();
+    const failure = demoError();
+    if (failure) {
+      return failure;
+    }
+
+    const changes = pinChangesSchema.safeParse(await request.json());
+    if (!changes.success) {
+      return new HttpResponse(null, { status: 400 });
+    }
+    const traceId = String(params.traceId);
+    if (!dataset.spansByTraceId.has(traceId)) {
+      return new HttpResponse(null, { status: 404 });
+    }
+    return HttpResponse.json(withTrace(putPin(traceId, changes.data)));
+  }),
+
+  http.delete('/api/investigation/:traceId', async ({ params }) => {
+    await latency();
+    const failure = demoError();
+    if (failure) {
+      return failure;
+    }
+    deletePin(String(params.traceId));
+    return new HttpResponse(null, { status: 204 });
   }),
 
   http.get('/api/services', async () => {

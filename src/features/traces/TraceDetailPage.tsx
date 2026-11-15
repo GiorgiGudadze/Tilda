@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router';
 import { ErrorState } from '@/components/ErrorState';
 import { Skeleton } from '@/components/Skeleton';
 import { StatusBadge } from '@/components/StatusBadge';
+import { PinControls } from '@/features/investigation/PinControls';
 import { useTrace } from '@/features/traces/hooks';
 import { Waterfall } from '@/features/traces/Waterfall';
 import { ApiError } from '@/lib/api';
@@ -61,7 +62,10 @@ export function TraceDetailPage() {
   return (
     <>
       {backLink}
-      <h1 className="text-2xl font-semibold">{trace.operation}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+        <h1 className="text-2xl font-semibold">{trace.operation}</h1>
+        <PinControls trace={trace} />
+      </div>
 
       <dl className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
         <div>

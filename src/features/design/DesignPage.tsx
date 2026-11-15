@@ -1,5 +1,6 @@
 import { SearchX } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
+import { toast } from 'sonner';
 import { DurationBar } from '@/components/DurationBar';
 import { DurationChart } from '@/components/DurationChart';
 import { EmptyState } from '@/components/EmptyState';
@@ -14,6 +15,15 @@ import { Skeleton } from '@/components/Skeleton';
 import { SpanBar } from '@/components/SpanBar';
 import { StatusBadge } from '@/components/StatusBadge';
 import { TimelineRuler } from '@/components/TimelineRuler';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -22,6 +32,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Select } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 
 /** Token groups. Class names are written in full so Tailwind can find them. */
@@ -299,7 +310,7 @@ export function DesignPage() {
         </BothThemes>
       </Section>
 
-      <Section title="Input and select">
+      <Section title="Form controls">
         <BothThemes>
           <div className="grid grid-cols-2 gap-3">
             <SampleField label="Empty">
@@ -325,6 +336,12 @@ export function DesignPage() {
                 <option value="newest">Newest first</option>
               </Select>
             </SampleField>
+            <SampleField label="Text area">
+              <Textarea rows={2} placeholder="What you found" />
+            </SampleField>
+            <SampleField label="Text area, invalid">
+              <Textarea rows={2} defaultValue="Too long" aria-invalid />
+            </SampleField>
           </div>
         </BothThemes>
       </Section>
@@ -341,11 +358,42 @@ export function DesignPage() {
         </BothThemes>
       </Section>
 
-      <Section title="Popover">
+      <Section title="Popover, alert dialog and toast">
         <p className="max-w-prose text-sm text-muted-foreground">
-          A popover opens outside the box it was called from, so it always wears
+          These open outside the box they were called from, so they always wear
           the theme of the page.
         </p>
+        <div className="flex flex-wrap gap-2">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline">Open the alert dialog</Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogTitle>Unpin POST /checkout?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This deletes its note. It cannot be undone.
+              </AlertDialogDescription>
+              <div className="flex flex-wrap justify-end gap-2 pt-2">
+                <AlertDialogCancel asChild>
+                  <Button variant="outline">Keep it pinned</Button>
+                </AlertDialogCancel>
+                <AlertDialogAction asChild>
+                  <Button variant="destructive">Unpin and delete</Button>
+                </AlertDialogAction>
+              </div>
+            </AlertDialogContent>
+          </AlertDialog>
+          <Button
+            variant="outline"
+            onClick={() =>
+              toast.error(
+                'The status could not be changed. It is back as it was.',
+              )
+            }
+          >
+            Show an error toast
+          </Button>
+        </div>
         <Popover>
           <PopoverTrigger asChild>
             <Button variant="outline">Open the popover</Button>
