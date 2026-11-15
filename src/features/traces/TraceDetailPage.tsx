@@ -1,7 +1,7 @@
 import { Link, useParams } from 'react-router';
-import { Button } from '@/components/ui/button';
+import { ErrorState } from '@/components/ErrorState';
+import { StatusBadge } from '@/components/StatusBadge';
 import { useTrace } from '@/features/traces/hooks';
-import { STATUS_LABELS } from '@/features/traces/status';
 import { Waterfall } from '@/features/traces/Waterfall';
 import { ApiError } from '@/lib/api';
 import { formatDateTime, formatDuration } from '@/lib/format';
@@ -37,10 +37,10 @@ export function TraceDetailPage() {
         {notFound ? (
           <p>There is no trace with the ID {id}.</p>
         ) : (
-          <div role="alert" className="space-y-3">
-            <p>The trace could not be loaded.</p>
-            <Button onClick={() => refetch()}>Retry</Button>
-          </div>
+          <ErrorState
+            title="The trace could not be loaded"
+            onRetry={() => refetch()}
+          />
         )}
       </>
     );
@@ -60,7 +60,9 @@ export function TraceDetailPage() {
         </div>
         <div>
           <dt className="text-muted-foreground">Status</dt>
-          <dd>{STATUS_LABELS[trace.status]}</dd>
+          <dd>
+            <StatusBadge status={trace.status} />
+          </dd>
         </div>
         <div>
           <dt className="text-muted-foreground">Duration</dt>

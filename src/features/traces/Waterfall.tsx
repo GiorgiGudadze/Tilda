@@ -1,6 +1,10 @@
-import { formatDuration } from '@/lib/format';
+import { ServiceLabel } from '@/components/ServiceLabel';
+import { SpanBar } from '@/components/SpanBar';
+import { StatusBadge } from '@/components/StatusBadge';
 import type { Span } from '@/features/traces/schemas';
+import { serviceColor } from '@/features/traces/service-colors';
 import { flattenSpans } from '@/features/traces/span-tree';
+import { formatDuration } from '@/lib/format';
 
 interface WaterfallProps {
   spans: Span[];
@@ -12,34 +16,35 @@ interface WaterfallProps {
 export function Waterfall({ spans, totalMs }: WaterfallProps) {
   const rows = flattenSpans(spans);
   // A trace of 0 ms would divide by zero.
-  const scale = 100 / Math.max(totalMs, 1);
+  const total = Math.max(totalMs, 1);
 
   return (
     <ol aria-label="Spans" className="divide-y rounded-md border text-sm">
-      {rows.map(({ span, depth }) => (
-        <li
-          key={span.id}
-          className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)_7rem] items-center gap-3 px-3 py-1.5"
-        >
-          <div className="truncate" style={{ paddingLeft: `${depth}rem` }}>
-            <span className="font-medium">{span.service}</span>{' '}
-            <span className="text-muted-foreground">{span.operation}</span>
-          </div>
-          <div className="relative h-3 rounded-sm bg-muted" aria-hidden="true">
-            <div
-              className="absolute inset-y-0 min-w-0.5 rounded-sm bg-primary"
-              style={{
-                left: `${span.startMs * scale}%`,
-                width: `${span.durationMs * scale}%`,
-              }}
+      {rows.map(({ span, depth }) => {
+        const color = serviceColor(span.service);
+        return (
+          <li
+            key={span.id}
+            className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)_9rem] items-center gap-3 px-3 py-1.5"
+          >
+            <div className="truncate" style={{ paddingLeft: `${depth}rem` }}>
+              <ServiceLabel name={span.service} color={color} />{' '}
+              <span className="text-muted-foreground">{span.operation}</span>
+            </div>
+            <SpanBar
+              start={span.startMs / total}
+              length={span.durationMs / total}
+              color={color}
             />
-          </div>
-          <div className="text-right tabular-nums">
-            {formatDuration(span.durationMs)}
-            {span.status === 'error' && ', failed'}
-          </div>
-        </li>
-      ))}
+            <div className="flex items-center justify-end gap-2 tabular-nums">
+              {span.status === 'error' && (
+                <StatusBadge status="error" label="Failed" />
+              )}
+              {formatDuration(span.durationMs)}
+            </div>
+          </li>
+        );
+      })}
     </ol>
   );
 }

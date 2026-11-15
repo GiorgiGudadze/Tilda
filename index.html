@@ -9,6 +9,25 @@
       name="description"
       content="Find slow or failing requests, see which step is to blame, and record the outcome."
     />
+    <meta name="color-scheme" content="light dark" />
+    <script>
+      // Set the theme before the first paint, so the page never flashes the
+      // wrong one. The saved choice wins; otherwise follow the system setting.
+      // src/lib/use-theme.ts reads the same key.
+      (() => {
+        let saved = null;
+        try {
+          saved = localStorage.getItem('theme');
+        } catch {
+          // Storage can be blocked. The theme then follows the system.
+        }
+        const dark =
+          saved === 'dark' ||
+          (saved !== 'light' &&
+            window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.classList.toggle('dark', dark);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

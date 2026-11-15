@@ -56,7 +56,7 @@ describe('Traces page', () => {
     renderApp('/traces');
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'The traces could not be loaded.',
+      'The traces could not be loaded',
     );
 
     await user.click(screen.getByRole('button', { name: 'Retry' }));

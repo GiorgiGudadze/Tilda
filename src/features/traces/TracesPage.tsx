@@ -1,7 +1,7 @@
 import { Link } from 'react-router';
-import { Button } from '@/components/ui/button';
+import { ErrorState } from '@/components/ErrorState';
+import { StatusBadge } from '@/components/StatusBadge';
 import { useTraces } from '@/features/traces/hooks';
-import { STATUS_LABELS } from '@/features/traces/status';
 import { formatDateTime, formatDuration } from '@/lib/format';
 
 export function TracesPage() {
@@ -14,10 +14,10 @@ export function TracesPage() {
       {isPending ? (
         <p>Loading traces…</p>
       ) : !data ? (
-        <div role="alert" className="space-y-3">
-          <p>The traces could not be loaded.</p>
-          <Button onClick={() => refetch()}>Retry</Button>
-        </div>
+        <ErrorState
+          title="The traces could not be loaded"
+          onRetry={() => refetch()}
+        />
       ) : (
         <>
           <p className="text-sm text-muted-foreground">
@@ -59,7 +59,9 @@ export function TracesPage() {
                       </Link>
                     </td>
                     <td className="py-2 pr-4">{trace.service}</td>
-                    <td className="py-2 pr-4">{STATUS_LABELS[trace.status]}</td>
+                    <td className="py-2 pr-4">
+                      <StatusBadge status={trace.status} />
+                    </td>
                     <td className="py-2 pr-4 text-right tabular-nums">
                       {formatDuration(trace.durationMs)}
                     </td>

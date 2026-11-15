@@ -31,7 +31,7 @@ describe('Trace page', () => {
     const list = await screen.findByRole('list', { name: 'Spans' });
     const failed = within(list)
       .getAllByRole('listitem')
-      .filter((row) => row.textContent.includes('failed'));
+      .filter((row) => row.textContent.includes('Failed'));
     expect(failed).toHaveLength(4);
     expect(failed.at(-1)).toHaveTextContent(
       'payments POST card-acquirer /authorize',
