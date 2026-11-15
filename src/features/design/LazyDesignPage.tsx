@@ -1,4 +1,5 @@
 import { lazy, Suspense } from 'react';
+import { PageHeading } from '@/app/PageHeading';
 
 // The only lazy page: most visitors never open it, so its code stays out of
 // the first download.
@@ -8,11 +9,18 @@ const DesignPage = lazy(() =>
   })),
 );
 
-/** If the download fails, the router's error page offers a reload. */
+/**
+ * The heading is outside the lazy part, so it is there to receive focus
+ * while the code downloads. If the download fails, the router's error page
+ * offers a reload.
+ */
 export function LazyDesignPage() {
   return (
-    <Suspense fallback={<p>Loading the design page…</p>}>
-      <DesignPage />
-    </Suspense>
+    <>
+      <PageHeading title="Design" />
+      <Suspense fallback={<p>Loading the design page…</p>}>
+        <DesignPage />
+      </Suspense>
+    </>
   );
 }

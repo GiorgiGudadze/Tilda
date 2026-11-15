@@ -152,6 +152,22 @@ One path through every layer, before any polish: schema, seeded data, mock API, 
 - **Screen readers hear the suggestion once.** A live region says "Writing a suggestion…" at the start and the whole text when it is complete, not word by word.
 - **One addition to the plan:** the decision also stores the `basis`. Without it, "Change decision" could not show what the confidence was based on.
 
+### Step 8: accessibility and responsive passes
+
+The target is WCAG 2.1 AA.
+
+- **Focus moves to the heading when the page changes.** In a single-page app nothing reloads, so a screen reader says nothing when a link is followed. `useFocusHeadingOnNavigation` focuses the new page's `h1`. Only the path counts: changing a filter is the same page and leaves focus alone. On the trace page the heading is the same element while the trace loads, so it keeps the focus.
+- **Each page names the browser tab** ("POST /checkout · Trace Investigator"). The page renders a `<title>` and React 19 moves it into the head, so there is no effect and no library.
+- **Reduced motion is respected everywhere,** by one rule in `index.css` that also covers the toasts and popovers of the libraries.
+- **axe runs on every page, in every state that looks different, in both themes:** 13 states, 26 runs. They include the error and empty states, an open span, a suggestion under review, an invalid form field and a recorded cause.
+- **The happy path is one e2e test, by keyboard only:** filter the list, open the failing trace, pin it, ask for a cause, follow the evidence link, accept, write a note, mark it resolved, reload.
+- **Keyboard checks:** the skip link is the first stop and jumps to the content; every stop on the traces page shows where focus is; the unpin dialog keeps focus inside and gives it back when it closes.
+- **Nothing scrolls sideways at 320 px** (WCAG 1.4.10 Reflow), checked for the same 13 states.
+- **The waterfall decides its layout from its own width, not the screen's** (a container query). Beside the suggestion panel it has less room than the screen suggests, and it used to cut span names short there. Now it goes to two lines per row whenever it is narrower than 56rem.
+- **Not tested with a real screen reader.** That is the main gap. axe checks rules; it cannot tell whether a page makes sense when it is read aloud.
+- **e2e in CI** (a stretch in the plan) is a second job. It has not run yet: it will on the first push.
+- **Left out on purpose:** the full ARIA tree keyboard pattern for the waterfall (arrow keys, levels, expand and collapse). Rows are plain buttons in the tab order. Half a tree pattern would be worse than none.
+
 ## Time spent
 
 | Step | Time |
@@ -163,3 +179,4 @@ One path through every layer, before any polish: schema, seeded data, mock API, 
 | 5    |      |
 | 6    |      |
 | 7    |      |
+| 8    |      |

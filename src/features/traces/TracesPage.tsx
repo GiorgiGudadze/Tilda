@@ -1,4 +1,5 @@
 import { SearchX } from 'lucide-react';
+import { PageHeading } from '@/app/PageHeading';
 import { DurationChart } from '@/components/DurationChart';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
@@ -54,7 +55,7 @@ export function TracesPage() {
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold">Traces</h1>
+        <PageHeading title="Traces" />
         <TracesHelp />
       </div>
 

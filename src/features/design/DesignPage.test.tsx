@@ -6,10 +6,12 @@ describe('Design page', () => {
   it('loads on demand and shows each component in both themes', async () => {
     renderApp('/design');
 
-    expect(screen.getByText('Loading the design page…')).toBeVisible();
+    // The heading is there at once. The rest arrives with the page's code.
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'Design' }),
+      screen.getByRole('heading', { level: 1, name: 'Design' }),
     ).toBeVisible();
+    expect(screen.getByText('Loading the design page…')).toBeVisible();
+    await screen.findByRole('heading', { level: 2, name: 'Colour tokens' });
 
     for (const name of [
       'Colour tokens',

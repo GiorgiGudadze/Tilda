@@ -31,7 +31,7 @@ export function DurationChart<Key extends string>({
   const max = Math.max(...bars.map((bar) => bar.count), 1);
 
   return (
-    <fieldset className={cn('flex min-w-0 gap-1', className)}>
+    <fieldset className={cn('flex min-w-0 gap-0.5 sm:gap-1', className)}>
       <legend className="sr-only">
         Traces by duration. Select a range to filter.
       </legend>
@@ -45,7 +45,7 @@ export function DurationChart<Key extends string>({
             // An empty range has nothing to show, unless it is the one to clear.
             disabled={bar.count === 0 && !selected}
             onClick={() => onSelect(selected ? null : bar.key)}
-            className="group flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-md border border-transparent px-1 py-1 text-xs outline-none hover:bg-muted focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-pressed:border-input aria-pressed:bg-muted"
+            className="group flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-md border border-transparent px-0.5 py-1 text-xs sm:px-1 outline-none hover:bg-muted focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-pressed:border-input aria-pressed:bg-muted"
           >
             {/* The whole name in one piece, for screen readers and speech. */}
             <span className="sr-only">
@@ -68,7 +68,8 @@ export function DurationChart<Key extends string>({
             </span>
             <span
               aria-hidden="true"
-              className="text-center leading-tight text-muted-foreground group-aria-pressed:font-semibold group-aria-pressed:text-foreground"
+              // A little smaller on a phone, so a label takes two lines, not three.
+              className="text-center text-[0.6875rem] leading-tight text-muted-foreground group-aria-pressed:font-semibold group-aria-pressed:text-foreground sm:text-xs"
             >
               {bar.label}
             </span>

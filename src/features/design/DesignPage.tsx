@@ -187,7 +187,6 @@ function BothThemes({
 export function DesignPage() {
   return (
     <>
-      <h1 className="text-2xl font-semibold">Design</h1>
       <p className="max-w-prose text-muted-foreground">
         The colour tokens and the components this app is built from, each in
         every state and in both themes. Components take plain props and know

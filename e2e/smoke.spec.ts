@@ -1,10 +1,5 @@
-import AxeBuilder from '@axe-core/playwright';
-import { expect, type Page, test } from '@playwright/test';
-
-async function expectNoAxeViolations(page: Page) {
-  const results = await new AxeBuilder({ page }).analyze();
-  expect(results.violations).toEqual([]);
-}
+import { expect, test } from '@playwright/test';
+import { expectNoAxeViolations } from './helpers.ts';
 
 test('the list opens a trace, with no accessibility violations', async ({
   page,

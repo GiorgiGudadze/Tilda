@@ -25,13 +25,18 @@ interface WaterfallProps {
 }
 
 /**
- * The columns of a row on a wide screen: name, bar, markers, duration.
- * On a phone a row is two lines: the name with its markers, then the bar
- * with the duration. `PHONE_LINE` is the grid of that second line.
+ * The columns of a row when the waterfall is wide: name, bar, markers,
+ * duration. When it is narrow a row is two lines: the name with its
+ * markers, then the bar with the duration. `NARROW_LINE` is the grid of
+ * that second line.
+ *
+ * "Wide" is about the waterfall itself (`@4xl` is a container query: 56rem
+ * or more), not the screen. Beside the suggestion panel it has less room
+ * than the screen suggests.
  */
 const WIDE_COLUMNS =
-  'sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)_9rem_4.5rem] sm:gap-x-3';
-const PHONE_LINE = 'grid grid-cols-[minmax(0,1fr)_4.5rem] gap-x-3';
+  '@4xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)_9rem_4.5rem] @4xl:gap-x-3';
+const NARROW_LINE = 'grid grid-cols-[minmax(0,1fr)_4.5rem] gap-x-3';
 
 /**
  * Every span as one row: its name, a bar on the trace's timeline and its
@@ -57,9 +62,9 @@ export function Waterfall({
   );
 
   return (
-    <div className="rounded-md border text-sm">
-      <div className={cn(PHONE_LINE, WIDE_COLUMNS, 'px-3 pt-1.5')}>
-        <TimelineRuler labels={ticks} className="sm:col-start-2" />
+    <div className="@container rounded-md border text-sm">
+      <div className={cn(NARROW_LINE, WIDE_COLUMNS, 'px-3 pt-1.5')}>
+        <TimelineRuler labels={ticks} className="@4xl:col-start-2" />
       </div>
       <ol aria-label="Spans" className="divide-y">
         {rows.map(({ span, depth }) => {
@@ -79,7 +84,7 @@ export function Waterfall({
                 aria-controls={selected ? detailsId : undefined}
                 onClick={() => onSelectSpan(selected ? null : span.id)}
                 className={cn(
-                  'grid w-full cursor-pointer gap-y-1 px-3 py-1.5 text-left outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset sm:items-center',
+                  'grid w-full cursor-pointer gap-y-1 px-3 py-1.5 text-left outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset @4xl:items-center',
                   WIDE_COLUMNS,
                   // An open row is marked by its background and by a line
                   // down its left edge.
@@ -93,10 +98,10 @@ export function Waterfall({
 
                 <span
                   aria-hidden="true"
-                  className="flex min-w-0 items-center gap-2 sm:contents"
+                  className="flex min-w-0 items-center gap-2 @4xl:contents"
                 >
                   <span
-                    className="min-w-0 flex-1 truncate sm:order-1"
+                    className="min-w-0 flex-1 truncate @4xl:order-1"
                     style={{ paddingLeft: `${depth * 0.75}rem` }}
                   >
                     <ServiceLabel name={span.service} color={color} />{' '}
@@ -104,7 +109,7 @@ export function Waterfall({
                       {span.operation}
                     </span>
                   </span>
-                  <span className="flex shrink-0 flex-wrap items-center justify-end gap-x-2 sm:order-3">
+                  <span className="flex shrink-0 flex-wrap items-center justify-end gap-x-2 @4xl:order-3">
                     {isEvidence && (
                       <span className="inline-flex items-center gap-1 font-medium whitespace-nowrap">
                         <Crosshair className="size-3.5 shrink-0" />
@@ -123,15 +128,15 @@ export function Waterfall({
 
                 <span
                   aria-hidden="true"
-                  className={cn(PHONE_LINE, 'items-center sm:contents')}
+                  className={cn(NARROW_LINE, 'items-center @4xl:contents')}
                 >
                   <SpanBar
                     start={span.startMs / total}
                     length={span.durationMs / total}
                     color={color}
-                    className="sm:order-2"
+                    className="@4xl:order-2"
                   />
-                  <span className="text-right tabular-nums sm:order-4">
+                  <span className="text-right tabular-nums @4xl:order-4">
                     {duration}
                   </span>
                 </span>

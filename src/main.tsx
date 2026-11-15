@@ -17,7 +17,7 @@ worker.start({ onUnhandledFrame: 'bypass', quiet: true }).then(
   },
   () => {
     root.render(
-      <main className="mx-auto max-w-6xl space-y-4 p-6">
+      <main className="mx-auto max-w-7xl space-y-4 p-6">
         <h1 className="text-2xl font-semibold">Trace Investigator</h1>
         <p>
           The demo could not start. Its data comes from a mock API that runs in

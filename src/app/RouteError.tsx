@@ -1,3 +1,4 @@
+import { PageHeading } from '@/app/PageHeading';
 import { Button } from '@/components/ui/button';
 
 /**
@@ -7,7 +8,7 @@ import { Button } from '@/components/ui/button';
 export function RouteError() {
   return (
     <>
-      <h1 className="text-2xl font-semibold">This page could not be shown</h1>
+      <PageHeading title="This page could not be shown" />
       <p>Something went wrong while loading it. Reloading usually helps.</p>
       <Button onClick={() => window.location.reload()}>Reload the page</Button>
     </>

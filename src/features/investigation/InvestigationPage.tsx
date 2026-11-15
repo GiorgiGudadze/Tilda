@@ -1,4 +1,5 @@
 import { Link } from 'react-router';
+import { PageHeading } from '@/app/PageHeading';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
 import { Skeleton } from '@/components/Skeleton';
@@ -11,7 +12,7 @@ export function InvestigationPage() {
 
   return (
     <>
-      <h1 className="text-2xl font-semibold">Investigation</h1>
+      <PageHeading title="Investigation" />
       <p className="max-w-prose text-sm text-muted-foreground">
         The traces you pinned, each with its cause and your note. This is the
         record of what you found.

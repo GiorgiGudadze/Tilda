@@ -34,6 +34,7 @@ export function TraceTable({ traces, pinnedIds }: TraceResultsProps) {
   const max = longest(traces);
   return (
     <table className="w-full text-left text-sm">
+      <caption className="sr-only">Traces</caption>
       <thead className="border-b text-muted-foreground">
         <tr>
           <th scope="col" className="py-1.5 pr-4 font-medium">

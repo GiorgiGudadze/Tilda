@@ -1,5 +1,6 @@
 import { parseAsString, useQueryState } from 'nuqs';
 import { Link, useParams } from 'react-router';
+import { PageHeading } from '@/app/PageHeading';
 import { ErrorState } from '@/components/ErrorState';
 import { Skeleton } from '@/components/Skeleton';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -24,11 +25,29 @@ export function TraceDetailPage() {
     </Link>
   );
 
+  const notFound = error instanceof ApiError && error.status === 404;
+  const title = data
+    ? data.trace.operation
+    : notFound
+      ? 'Trace not found'
+      : 'Trace';
+
+  // The heading is the same element in every state, so it keeps the focus
+  // it was given on arrival while the trace loads.
+  const header = (
+    <>
+      {backLink}
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+        <PageHeading title={title} />
+        {data && <PinControls trace={data.trace} />}
+      </div>
+    </>
+  );
+
   if (isPending) {
     return (
       <>
-        {backLink}
-        <h1 className="text-2xl font-semibold">Trace</h1>
+        {header}
         <p className="sr-only">Loading trace…</p>
         <Skeleton className="h-10 w-full max-w-2xl" />
         <Skeleton className="h-64 w-full" />
@@ -37,13 +56,9 @@ export function TraceDetailPage() {
   }
 
   if (!data) {
-    const notFound = error instanceof ApiError && error.status === 404;
     return (
       <>
-        {backLink}
-        <h1 className="text-2xl font-semibold">
-          {notFound ? 'Trace not found' : 'Trace'}
-        </h1>
+        {header}
         {notFound ? (
           <p>There is no trace with the ID {id}.</p>
         ) : (
@@ -66,11 +81,7 @@ export function TraceDetailPage() {
 
   return (
     <>
-      {backLink}
-      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
-        <h1 className="text-2xl font-semibold">{trace.operation}</h1>
-        <PinControls trace={trace} />
-      </div>
+      {header}
 
       <dl className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
         <div>
