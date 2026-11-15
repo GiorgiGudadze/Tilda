@@ -15,15 +15,16 @@ interface SpanBarProps {
 
 /**
  * One span on a timeline. It is hidden from screen readers: the row it sits
- * in gives the same information as text.
+ * in gives the same information as text. It is built from `span` elements so
+ * it can sit inside a button.
  */
 export function SpanBar({ start, length, color, className }: SpanBarProps) {
   return (
-    <div
+    <span
       aria-hidden="true"
-      className={cn('relative h-3 rounded-sm bg-muted', className)}
+      className={cn('relative block h-3 rounded-sm bg-muted', className)}
     >
-      <div
+      <span
         // The minimum width keeps a very short span visible.
         className={cn(
           'absolute inset-y-0 min-w-0.5 rounded-sm',
@@ -31,6 +32,6 @@ export function SpanBar({ start, length, color, className }: SpanBarProps) {
         )}
         style={{ left: `${start * 100}%`, width: `${length * 100}%` }}
       />
-    </div>
+    </span>
   );
 }

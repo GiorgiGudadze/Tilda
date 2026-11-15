@@ -13,6 +13,7 @@ import {
 import { Skeleton } from '@/components/Skeleton';
 import { SpanBar } from '@/components/SpanBar';
 import { StatusBadge } from '@/components/StatusBadge';
+import { TimelineRuler } from '@/components/TimelineRuler';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -254,8 +255,14 @@ export function DesignPage() {
         </BothThemes>
       </Section>
 
-      <Section title="Span bar">
+      <Section title="Span bar and timeline ruler">
         <BothThemes>
+          <div className="grid grid-cols-[9rem_minmax(0,1fr)] gap-3">
+            <TimelineRuler
+              labels={['0 ms', '725 ms', '1.45 s', '2.18 s', '2.90 s']}
+              className="col-start-2"
+            />
+          </div>
           <ul className="space-y-2 text-sm">
             {SAMPLE_SPANS.map((span) => (
               <li

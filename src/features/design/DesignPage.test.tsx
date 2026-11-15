@@ -16,7 +16,7 @@ describe('Design page', () => {
       'Button',
       'Status badge',
       'Service label',
-      'Span bar',
+      'Span bar and timeline ruler',
       'Duration bar',
       'Input and select',
       'Duration chart',

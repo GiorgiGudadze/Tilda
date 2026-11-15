@@ -1,5 +1,7 @@
+import { parseAsString, useQueryState } from 'nuqs';
 import { Link, useParams } from 'react-router';
 import { ErrorState } from '@/components/ErrorState';
+import { Skeleton } from '@/components/Skeleton';
 import { StatusBadge } from '@/components/StatusBadge';
 import { useTrace } from '@/features/traces/hooks';
 import { Waterfall } from '@/features/traces/Waterfall';
@@ -9,6 +11,8 @@ import { formatDateTime, formatDuration } from '@/lib/format';
 export function TraceDetailPage() {
   const { id = '' } = useParams();
   const { data, isPending, error, refetch } = useTrace(id);
+  // The open span is in the URL, so a link can point at one step.
+  const [spanParam, setSpanParam] = useQueryState('span', parseAsString);
 
   const backLink = (
     <Link to="/traces" className="text-sm underline underline-offset-4">
@@ -21,7 +25,9 @@ export function TraceDetailPage() {
       <>
         {backLink}
         <h1 className="text-2xl font-semibold">Trace</h1>
-        <p>Loading trace…</p>
+        <p className="sr-only">Loading trace…</p>
+        <Skeleton className="h-10 w-full max-w-2xl" />
+        <Skeleton className="h-64 w-full" />
       </>
     );
   }
@@ -47,6 +53,10 @@ export function TraceDetailPage() {
   }
 
   const { trace, spans } = data;
+  // A span ID that is not in this trace opens nothing.
+  const selectedSpanId = spans.some((span) => span.id === spanParam)
+    ? spanParam
+    : null;
 
   return (
     <>
@@ -82,8 +92,19 @@ export function TraceDetailPage() {
         </div>
       </dl>
 
-      <h2 className="text-lg font-semibold">Waterfall</h2>
-      <Waterfall spans={spans} totalMs={trace.durationMs} />
+      <div>
+        <h2 className="text-lg font-semibold">Waterfall</h2>
+        <p className="text-sm text-muted-foreground">
+          Each row is one span, drawn where it ran. Select a row to see its
+          details.
+        </p>
+      </div>
+      <Waterfall
+        spans={spans}
+        totalMs={trace.durationMs}
+        selectedSpanId={selectedSpanId}
+        onSelectSpan={(spanId) => void setSpanParam(spanId)}
+      />
     </>
   );
 }

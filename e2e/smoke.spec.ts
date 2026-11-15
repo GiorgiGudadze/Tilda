@@ -118,3 +118,33 @@ test('a phone gets cards and the page still fits the screen', async ({
   await expect(page.getByText('Think of a parcel')).toBeVisible();
   await expectNoAxeViolations(page);
 });
+
+test('a span opens its details, and the link to it can be shared', async ({
+  page,
+}) => {
+  await page.goto('/traces/a1b2c3d4e5f60001');
+  const row = page.getByRole('button', {
+    name: 'postgres, SELECT orders WHERE user_id = ?, 2.26 s, OK, slowest span',
+  });
+  await row.click();
+  await expect(row).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByText('2.26 s, 78% of the trace')).toBeVisible();
+  await expect(page).toHaveURL(/span=s5/);
+  await expectNoAxeViolations(page);
+
+  const copy = await page.context().newPage();
+  await copy.goto(page.url());
+  await expect(copy.getByText('2.26 s, 78% of the trace')).toBeVisible();
+});
+
+test('the waterfall fits a phone, in the dark theme too', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.goto('/traces/a1b2c3d4e5f60002?span=s10');
+  await expect(page.getByText('414 ms, 65% of the trace')).toBeVisible();
+  const overflow = await page
+    .locator('html')
+    .evaluate((html) => html.scrollWidth - html.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+  await expectNoAxeViolations(page);
+});

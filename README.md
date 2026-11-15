@@ -89,6 +89,18 @@ One path through every layer, before any polish: schema, seeded data, mock API, 
 - **The mock validates the query** with the same zod schema the feature exports, and answers 400 to a bad one. `queryTraces` is a pure function with its own unit tests.
 - **Left for later steps:** the pinned marker on rows (step 6).
 
+### Step 5: the waterfall and span details
+
+- **Self time is pure logic with its own tests** (`self-time.ts`). A span's self time is its duration minus the union of its children's intervals, each clipped to the parent. The union matters when two calls run at once: a sum would count the overlap twice. The tests cover overlapping children, a child inside another, a child that runs past its parent and one completely outside it.
+- **The slowest span is the one with the largest self time**, not the longest one. The root span is always the longest, but it mostly waits. On equal self time the span that started earlier wins.
+- **A row is a plain button** in the normal tab order, with `aria-expanded`. Its name says everything the row shows: "postgres, SELECT orders WHERE user_id = ?, 2.26 s, OK, slowest span". The full tree keyboard pattern (arrow keys, levels) is left out on purpose; half of it would be worse than none.
+- **Details open under the row**, not in a side panel. It works the same on a phone, the details stay next to the bar they describe, and the space beside the waterfall stays free for the suggestion panel in step 7. One span is open at a time.
+- **The open span is in the URL** (`?span=s5`), so a link can point at one step. A span ID that is not in the trace opens nothing.
+- **The slowest span and failed spans are marked with an icon and a word**, never by colour alone.
+- **Timeline ruler.** Five labels at the quarters of the trace duration. It is hidden from screen readers, because every row states its duration as text. On a phone it shows three labels.
+- **Phone layout with one set of elements.** A row is two lines on a phone (name and markers, then bar and duration) and one line on a wide screen. The two line wrappers become `display: contents` on wide screens, so the same four elements drop into one grid. Every bar has the same width on a phone, so the bars stay comparable.
+- **Span details show what the data has:** status, duration, self time and its share of the trace, start offset, parent, number of children. Spans carry no attributes (query text, error message), so none are invented.
+
 ## Time spent
 
 | Step | Time |
@@ -97,3 +109,4 @@ One path through every layer, before any polish: schema, seeded data, mock API, 
 | 2    |      |
 | 3    |      |
 | 4    |      |
+| 5    |      |
