@@ -1,30 +1,337 @@
 # Trace Investigator
 
-A small React app where an on-call engineer finds slow or failing requests, sees which step is to blame, reviews an AI-suggested cause and records the outcome.
+A small React app for one person: **Maya, a backend engineer on call.** Something is slow or failing, and she has three questions.
 
-> Work in progress. This README grows with each build step.
+1. **Which requests are slow or failing?**
+2. **Where inside a request does the time go?**
+3. **What do I tell the team?**
 
-## Setup
+The app answers them in that order: find suspicious traces, look inside one, review an AI-suggested cause, and record the outcome.
+
+**New to traces? Think of a parcel.** A _trace_ is the tracking history of one request, the way a parcel has a tracking history. Each _span_ is one stop on the way: a service that handled the request, or a query it ran. The app points at the stop where the parcel sat the longest, or where it was lost.
+
+> **TODO before submitting:** replace `https://TODO.vercel.app` with the live address. It appears in the four link definitions at the very bottom of this file.
+
+**Live:** [the app][live]
+
+There is no backend. A mock API runs in the browser, with the same data on every visit. Three traces are written by hand and are always the newest three in the list:
+
+| Trace               | What it shows                                                        |
+| ------------------- | -------------------------------------------------------------------- |
+| [Slow query][slow]  | One query takes 78% of a 2.9 s request. The suggestion is confident. |
+| [Error][error]      | A checkout that fails at the card acquirer call.                     |
+| [Uncertain][unsure] | A slow request where no single step stands out. The AI says so.      |
+
+## A two-minute tour
+
+1. Open [the app][live]. The list shows the newest requests. Set **Status** to Error, or click a bar of the duration chart. The filters go into the address bar, so the list can be shared as a link.
+2. Open [the failed checkout][error]. Each row of the waterfall is one span, drawn where it ran. Click a row to see its details.
+3. Press **Pin trace**, then **Suggest cause**. The text arrives in pieces. When it is complete, follow the **Evidence** link to the span the claim is based on, then **Accept**, **Edit** or **Reject**.
+4. Open **Investigation**. Write a note, save it, and mark the trace as resolved.
+5. In the header, **Demo** switches the mock API to slow responses, server errors or no data, so every loading, error and empty state can be seen. Next to it is the theme toggle. **Design** shows every token and component in both themes.
+
+## Run it
 
 Requires Node 26 (see `.nvmrc`) and pnpm.
 
 ```sh
 nvm use
 pnpm install
-pnpm dev
+pnpm dev                                  # http://localhost:5173
 ```
 
-## Scripts
+| Script        | What it does                                            |
+| ------------- | ------------------------------------------------------- |
+| `pnpm dev`    | Start the dev server                                    |
+| `pnpm build`  | Typecheck and build for production                      |
+| `pnpm check`  | Lint, format check, typecheck, unit and component tests |
+| `pnpm e2e`    | Playwright tests against the production build           |
+| `pnpm format` | Format with Prettier                                    |
 
-| Script        | What it does                                  |
-| ------------- | --------------------------------------------- |
-| `pnpm dev`    | Start the dev server                          |
-| `pnpm build`  | Typecheck and build for production            |
-| `pnpm check`  | Lint, format check, typecheck and unit tests  |
-| `pnpm e2e`    | Playwright tests against the production build |
-| `pnpm format` | Format with Prettier                          |
+Before the first `pnpm e2e`, install the browser: `pnpm exec playwright install chromium`.
+
+## Architecture
+
+```mermaid
+flowchart TB
+  subgraph ui["React 19"]
+    pages["Pages and feature components<br/>src/app, src/features"]
+    lib["Library components<br/>src/components: plain props, no API"]
+    hooks["Feature hooks<br/>useTraces, usePins, useSuggestionStream"]
+  end
+
+  url[("URL<br/>filters, page, open span")]
+  cache[("TanStack Query cache<br/>traces, services, pins")]
+  api["src/lib/api.ts<br/>fetch, then zod checks the shape"]
+
+  subgraph mock["Mock API in a service worker (MSW)"]
+    handlers["Handlers<br/>src/mocks/handlers.ts"]
+    seed[("Seeded traces<br/>fixed clock, same every run")]
+    rules["suggest.ts<br/>seven rules: the simulated model"]
+    storage[("localStorage<br/>pins")]
+  end
+
+  pages --> lib
+  pages --> hooks
+  hooks <-->|nuqs| url
+  hooks <--> cache
+  cache --> api
+  hooks -->|"stream of JSON lines"| api
+  api -->|HTTP| handlers
+  handlers --> seed
+  handlers --> rules
+  handlers --> storage
+```
+
+**Data flow.** A component calls a feature hook and never calls `fetch`. The hook reads its inputs from the URL, asks TanStack Query, and Query calls `src/lib/api.ts`. Every response, and every line of the suggestion stream, is checked against a zod schema; the TypeScript types come from the schemas with `z.infer`. A response with the wrong shape ends in the same error state as a failed request.
+
+**The mock is a real HTTP boundary.** The app talks to `/api/...` and does not know the answers come from a service worker. Only two files outside the tests know the mock exists: `main.tsx`, which starts it, and the Demo control. No feature code would change for a real server.
+
+```
+src/
+  app/              routes, layout, page heading, focus on navigation, Demo control
+  components/       library components. ui/ holds the styled primitives
+  features/
+    traces/         list, filters, chart, waterfall, span details, self time
+    investigation/  pins: schemas, optimistic hooks, Investigation page, note form
+    suggestion/     stream reducer and hook, review panel, decisions
+    design/         the /design page (the only lazy route)
+  lib/              api client, formatters, small hooks
+  mocks/            MSW handlers, seeded data, the seven rules, pin storage
+  test/             test setup and helpers
+e2e/                Playwright: smoke, happy path, accessibility
+```
+
+### Who owns which state
+
+| State                                                    | Owner                                  |
+| -------------------------------------------------------- | -------------------------------------- |
+| Traces, services, pins, and every write to pins          | TanStack Query                         |
+| Search, service, status, sort, page, duration, open span | The URL, through nuqs                  |
+| The life of a suggestion stream                          | `useReducer` (`suggestion/reducer.ts`) |
+| The decision about a cause                               | The pin, on the server                 |
+| Theme                                                    | One hook (`useTheme`) and localStorage |
+| Demo mode                                                | The mock layer                         |
+| Text being typed, an open form, an open dialog           | `useState`                             |
+
+There is no global store. Server data has an owner, the URL has an owner, and the rest is local. The rule throughout is to store inputs and derive outputs: the pinned marker on a row, the slowest span, the page count and the evidence to highlight are all computed while rendering, never stored.
+
+### Where to look first
+
+| File                                  | Why                                                             |
+| ------------------------------------- | --------------------------------------------------------------- |
+| `src/features/traces/self-time.ts`    | The one piece of real logic: self time as a union of intervals  |
+| `src/mocks/suggest.ts` and its test   | The seven rules, and one table-driven test for all of them      |
+| `src/features/suggestion/reducer.ts`  | The stream as a small state machine                             |
+| `src/features/investigation/hooks.ts` | Optimistic updates, rollback, and the two races that were fixed |
+| `src/features/traces/filters.ts`      | URL state in one place, with one rule for returning to page 1   |
+| `e2e/happy-path.spec.ts`              | The whole story, by keyboard only                               |
+
+## Decisions and their cost
+
+**The mock API runs in production too.** The assignment has no backend, and a service worker gives the app a real HTTP boundary: real requests, real delays, real failures. _Cost:_ about 36% of the JavaScript is the mock layer, most of it cookie handling inside MSW that this app never uses (see [Bundle size](#bundle-size)).
+
+**Filters live in the URL.** A filtered list is a link, and so is one open span. One function changes filters and it always clears the page, so no filter can forget to return to page 1. _Cost:_ changing a filter replaces the history entry, so Back leaves the list and does not undo filters one by one.
+
+**Search is debounced on the request, not on the input.** The box updates the URL on every key, so it never lags and "Clear filters" just works. The request waits until typing stops for 300 ms.
+
+**A page beyond the last shows the last page.** The API answers with the last page and the screen shows `min(page in the URL, last page)`. There is no effect that rewrites the URL and no second request. _Cost:_ the URL keeps the wrong number until the next click.
+
+**Pin, Resolve, Unpin and the decision are optimistic. The note is not.** A click shows at once and is undone with a toast if the request fails. A note has a Save button and its own "Saving…", "Saved" and error states, because a person who typed a note needs to know it reached the server.
+
+**Writes to pins go one at a time, and send only what changed.** The mock answers after a random delay, so requests can arrive out of order, as on a real network. Tests caught two races: a slow save overwrote a later one, and a refetch hid a change that was still on its way. Now each save sends only its own fields, all writes share one queue, and the pins are loaded again only when the last write finishes. _Cost:_ a change made in another tab shows only after a write or a reload.
+
+**Span details open under the row, not in a side panel.** It works the same on a phone and keeps the details next to the bar they describe. _Cost:_ the rows below move down when one opens.
+
+**The waterfall is a list of buttons, not an ARIA tree.** Each row is a plain button in the tab order, named with everything it shows: "postgres, SELECT orders WHERE user_id = ?, 2.26 s, OK, slowest span". The full tree pattern (arrow keys, levels, collapse) is left out on purpose. Half of it would be worse than none.
+
+**The slowest span is the one with the largest self time, not the longest.** The root span is always the longest, but it mostly waits. Self time subtracts the _union_ of the children's intervals, because two calls can run at once and a sum would count the overlap twice.
+
+**Percentages round down.** 59.9% is shown as 59%, never as 60%, so the number on screen cannot contradict the rule that used it.
+
+**Native `<select>`, Radix for the popover and the dialog.** I write a thing myself when it is simple and use a library when the edge cases are the hard part. The browser's select already handles the keyboard, screen readers and phones. Focus trapping in a dialog is the kind of thing a library should own.
+
+**No automatic retries.** A failed request shows the error and a Retry button straight away. A missing trace or a wrong response shape would not fix itself.
+
+**Times are shown in UTC,** so the seeded data reads the same for every viewer.
+
+## The suggested cause
+
+**The model is simulated.** There is no AI behind the suggestion. Seven fixed rules in `src/mocks/suggest.ts`, checked in order, decide the text and the confidence. This keeps the interesting part honest and testable: how an interface should present a claim that might be wrong.
+
+"Slow" means 1 s or more. It is one constant and an assumption: a real system would compare a request with the normal time for its operation.
+
+| #   | When                                                   | Confidence | Basis shown                                       |
+| --- | ------------------------------------------------------ | ---------- | ------------------------------------------------- |
+| 1   | The request failed, and the failure began in one place | High       | "error reached the request"                       |
+| 2   | The request failed, and failures began in several      | Medium     | "error reached the request, several spans failed" |
+| 3   | Slow, and one span's self time is 60% or more          | High       | "78% of trace time"                               |
+| 4   | Slow, and one span's self time is 30% to under 60%     | Medium     | "42% of trace time"                               |
+| 5   | A span failed, but the request succeeded               | Medium     | "a span failed, the request succeeded"            |
+| 6   | Slow, and none of the above                            | Low        | "largest span is 18% of trace time"               |
+| 7   | Not slow, and nothing failed                           | None       | No claim is made                                  |
+
+Exactly 60% is high and exactly 30% is medium. On equal self time the earlier span wins. One table-driven test covers every rule, both boundaries, the tie, and the order between rules.
+
+**How the interface treats the claim**
+
+- **A suggestion is never the conclusion by itself.** It sits in a dashed frame under "Suggested cause" until a person accepts it, edits it or rejects it. Only then is there a "Cause", labelled "Accepted by you" or "Edited by you".
+- **The claim links to its source.** The spans it is based on are links in the panel and are marked "Evidence" in the waterfall. It is the same pattern as an AI-extracted value that links to its place in the source document.
+- **The confidence shows its basis:** "High confidence. Based on: 78% of trace time". The badge is not coloured, because a green "high" would read as "correct".
+- **The text says where, never why.** The data shows which span failed or was slow. It does not show the reason, so the suggestion does not guess one.
+- **On low confidence, Edit is the primary button,** not Accept. When nothing looks wrong there is nothing to accept, so the only button is "Write a cause yourself".
+- **The AI's confidence stays with the AI's text.** For an edited cause it is behind "View original AI text", because the user's own words were never rated.
+- **Half a suggestion is never offered for a decision.** A stream that closes before its last line is an error.
+
+**Where the rules are wrong**
+
+- **Timeouts.** When a caller gives up on a slow child, the caller is the deepest failed span, so rule 1 names the caller. The real cause is the slow child, which never failed.
+- **Many identical queries.** Twenty queries of 4% each add up to 80%, but no single span stands out, so rule 6 says so. Grouping spans by operation would catch it.
+
+## Design system
+
+- **Semantic tokens only.** Every colour is a token in `src/index.css`. Components use token names and contain no raw colours and no `dark:` variants, so a theme changes the tokens and never the components.
+- **Colour has two jobs:** status and service identity. The rest of the interface is neutral.
+- **Status is an icon plus text,** never colour alone.
+- **Contrast is computed, not judged by eye.** Text tokens are at least 4.5:1 on every surface. Lines and bars that carry meaning are at least 3:1. The eight service colours were picked by a search that also keeps them apart for red-green colour blindness. The light set clears every target. The dark set is just under one of them (14.3 against 15 for normal vision), which is acceptable because every bar has its service name beside it as text.
+- **Library components take plain props and know nothing about the API.** They are all on `/design`, in every state and both themes side by side.
+
+## Accessibility
+
+The target is WCAG 2.1 AA.
+
+- Landmarks, a skip link, one `h1` per page, and a visible focus style.
+- Focus moves to the heading when the page changes, and each page names the browser tab.
+- The result count is announced when the list changes. The suggestion is announced once, when it is complete, not word by word.
+- Form errors are tied to their fields with `aria-describedby`. Buttons that repeat on a page name their trace ("Unpin POST /checkout").
+- Reduced motion is respected, in this app's styles and in the libraries'.
+- Nothing scrolls sideways at 320 px.
+- axe runs on 13 page states in both themes.
+
+**What is not done.** I have not tested with a real screen reader, which is the main gap: axe checks rules, not whether a page makes sense read aloud. The end-to-end tests run in Chromium only.
+
+## Testing
+
+| Level               | Count | What it covers                                                                                                               |
+| ------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Unit                | 118   | Span order, self time, the slowest span, duration ranges, the seven rules, the stream reducer, the line splitter, formatters |
+| Component, with MSW | 90    | Filters and the URL, every state of every page, optimistic updates and rollback, forms, the suggestion panel                 |
+| End to end          | 56    | A keyboard-only happy path, axe on every page in both themes, reflow at 320 px, keyboard and reduced-motion checks           |
+
+Component tests render the whole app against the same mock handlers the browser uses, so they test behaviour through the real HTTP boundary and not internals. CI runs lint, format check, typecheck, the unit and component tests and the build, and the end-to-end tests as a second job.
+
+## Libraries
+
+| Library                               | Why                                                                                   |
+| ------------------------------------- | ------------------------------------------------------------------------------------- |
+| React 19, TypeScript 7 (strict), Vite | The current stable set. `noUncheckedIndexedAccess` forces a check on every `items[0]` |
+| React Router                          | The data router, for the route error element and the lazy route. Not for loaders      |
+| TanStack Query                        | Server state: caching, keeping the last rows while the next load, optimistic writes   |
+| nuqs                                  | Typed URL state with parsers and defaults                                             |
+| zod                                   | One schema per response, and the types come from it                                   |
+| MSW                                   | The mock API as a real HTTP boundary, in the browser and in tests                     |
+| Tailwind 4                            | Tokens as CSS variables and utilities that only use them                              |
+| Radix, with shadcn's conventions      | Popover and alert dialog: focus management is the hard part                           |
+| lucide                                | Icons                                                                                 |
+| class-variance-authority, cn          | Variants and class merging for the styled primitives                                  |
+| Geist (variable font)                 | One typeface, loaded from the bundle, not from a third party                          |
+| sonner                                | Toasts that are announced to screen readers                                           |
+| Vitest, Testing Library               | Unit and component tests                                                              |
+| Playwright, axe                       | End-to-end and accessibility tests against the production build                       |
+| oxlint, Prettier                      | Lint (with the jsx-a11y rules) and formatting                                         |
+
+**Left out on purpose:** a global store (Zustand), a state machine library (XState), a table library, a form library, a date library, a chart library, and React's `useOptimistic` (TanStack Query owns the writes, and two owners of one optimistic update is one too many). The chart is six buttons and the forms have one field each.
+
+## Bundle size
+
+|                        | JavaScript | Gzipped |
+| ---------------------- | ---------- | ------- |
+| With the lazy route    | 1,059 kB   | 360 kB  |
+| The `/design` chunk    | 10 kB      | 2.9 kB  |
+| Without the lazy route | 1,067 kB   | 361 kB  |
+
+**Lazy loading saved little:** 8 kB, under 1% of the first load. Only one page is split, the one most visitors never open. Splitting the main flow would save more but adds complexity for no visible gain at this size.
+
+**What the main file is made of** (minified, before gzip):
+
+| Part                                                | Size   | Share |
+| --------------------------------------------------- | ------ | ----- |
+| The mock API: MSW and the cookie code it brings     | 380 kB | 36%   |
+| React and React DOM                                 | 215 kB | 20%   |
+| React Router                                        | 95 kB  | 9%    |
+| zod                                                 | 86 kB  | 8%    |
+| This app's own code                                 | 62 kB  | 6%    |
+| Everything else (Query, nuqs, sonner, Radix, icons) | 217 kB | 21%   |
+
+The largest single item is a public suffix list (257 kB) that MSW uses for cookies, which this app never sets. With a real backend the mock layer would not ship at all.
+
+## How AI tools were used
+
+I used Claude Code for the whole build, in this way:
+
+- **The plan came first.** A written spec was agreed before any code: the user, the screens, the state owners, the API, the rules for confidence, the stack and a build order of nine steps. Most decisions in this README were made there, not found in the code afterwards.
+- **One step at a time.** Claude built each step and stopped. I reviewed the step and made every commit myself. Claude never committed or pushed.
+- **What was delegated:** writing the code and the tests for each step, and the notes at the bottom of this file.
+- **What checked the work:** lint with accessibility rules, strict types, unit and component tests, and end-to-end tests with axe after every step, plus screenshots at several widths.
+
+**Mistakes the checks caught.** These are the ones worth knowing about:
+
+- **Rows dimmed while loading failed contrast.** The first version of the list dimmed the current rows while the next ones loaded. axe failed it: dimmed text falls below the contrast minimum. It now says "Updating…" instead.
+- **A slow save could overwrite a later one.** An end-to-end test that passed most runs and failed now and then turned out to be a real race, not a flaky test: pinning a trace and then saving its note could lose the note. The fix changed the API (a save sends only what it changes) and queued the writes.
+- **Chart buttons had a spoken name that did not contain their visible text.** That fails WCAG 2.5.3, which matters to people who operate a page by voice.
+- **A lookup returned a function for a service called `toString`.** A plain object was used as a map. It was noticed while writing the test for that case, and is now a `Map`.
+
+> **TODO before submitting:** add one thing you changed or rejected yourself while reviewing a step. The list above is what the automated checks caught; a reviewer will also want to know what you caught.
+
+## Original work
+
+All application code and the visual design were written for this assignment. Nothing is taken from an employer's product or from any other product.
+
+What is not mine: the libraries listed above, the `Button` component generated by shadcn (edited to use tokens only), the Geist font, the lucide icons, and `public/mockServiceWorker.js`, which MSW generates. The random number generator in the seed is mulberry32, a small public-domain algorithm.
+
+## What I would refactor
+
+- **`TraceDetailPage` and `SuggestionWorkspace` do too much.** The workspace owns the stream, the decision and the layout of the waterfall beside the panel. I would split the layout from the state.
+- **The three features import from each other.** `traces` uses `investigation` and `suggestion`, and both use `traces`. It works at this size. A page-level module that composes them would make the direction clear.
+- **`PUT` changes only the fields it is sent.** That is `PATCH` behaviour under a `PUT` name. I kept the name from the plan; I would rename it.
+- **Rollback restores a snapshot.** With two optimistic changes in flight, undoing the first briefly hides the second. Rendering pending changes from the mutations themselves would be more exact.
+- **`/design` is one long file.** It would be the first thing I move to Storybook.
+
+## What is next, and how it scales
+
+- **A real backend and a real model.** The HTTP boundary and the schemas are already there. The interface around the claim does not change.
+- **Generated API types.** The zod schemas are written by hand. With a real API they should come from its OpenAPI description.
+- **Grouping spans by operation,** to catch the "many identical queries" case.
+- **Virtualised lists.** The list is paged at 25 and traces are capped at about 30 spans. Real traces have thousands of spans, and the waterfall would need virtualisation and collapsing.
+- **The full ARIA tree pattern** for the waterfall, once it can collapse.
+- **A global store,** when real cross-page client state appears. Today there is none.
+- **Storybook** in place of `/design`, once more than one person works on the components.
+- **Span attributes** (query text, error message), so the details panel can show more than timing.
+- **Smaller things:** autosave for the note, an Open/Resolved filter, pins that stay fresh across tabs, tests in Firefox and Safari.
+
+## Time spent
+
+> **TODO before submitting:** fill in the real time for each step.
+
+| Step                                                 | Planned | Actual |
+| ---------------------------------------------------- | ------- | ------ |
+| 1. Setup, tooling, CI, deploy                        | 1 h     |        |
+| 2. Thin slice through every layer                    | 3 h     |        |
+| 3. Tokens, themes, layout, base components           | 1.5 h   |        |
+| 4. Traces page: filters, states, table, chart        | 3 h     |        |
+| 5. Waterfall, span details, phone layout             | 2.5 h   |        |
+| 6. Pins, Investigation page, forms                   | 2 h     |        |
+| 7. Suggestion: stream, panel, decision, evidence     | 2 h     |        |
+| 8. Accessibility and responsive passes, e2e with axe | 2 h     |        |
+| 9. README                                            | 1.5 h   |        |
+| **Total**                                            | 18.5 h  |        |
 
 ## Build notes
+
+<details>
+<summary>Notes written after each step, in the order the app was built</summary>
+
+These are a log. A later step sometimes changed what an earlier note describes.
 
 ### Step 1: setup
 
@@ -79,7 +386,7 @@ One path through every layer, before any polish: schema, seeded data, mock API, 
 - **One rule for page 1.** `useTraceFilters` gives the page one `setFilters` function, and it always clears `page`. No filter can forget to return to page 1.
 - **A page beyond the last.** The API answers with the last page, and the page shows `min(page in the URL, last page)`. There is no effect that rewrites the URL and no second request.
 - **Search is debounced on the request, not on the input.** The search box updates the URL on every key, so it never lags and "Clear filters" just works. `useDebouncedValue` holds the request back until typing stops for 300 ms.
-- **The current rows stay while the next ones load** (`placeholderData: keepPreviousData`). The count line says "Updating…" meanwhile. I first dimmed the rows instead, and axe caught it: the dimmed text fell below the contrast minimum.
+- **The current rows stay while the next ones load** (`placeholderData: keepPreviousData`). The count line says "Updating…" meanwhile. The first version dimmed the rows instead, and axe caught it: the dimmed text fell below the contrast minimum.
 - **The service filter matches any service in the trace**, not only the entry point. Every trace enters at `api-gateway`, so a filter on the entry point would be useless. The entry service is shown beside the request, not as its own column.
 - **The duration chart is six buttons.** The ranges are fixed and their counts come with the list response. The counts ignore the selected range, so the other bars stay and another range can be picked. A selected bar is marked by a frame and bold text, not by colour alone, and a second click clears it. Each button is named like "2 to 3 s, 14 traces".
 - **States.** Skeleton rows on the first load, an empty state with "Clear filters", an error state with Retry.
@@ -165,18 +472,12 @@ The target is WCAG 2.1 AA.
 - **Nothing scrolls sideways at 320 px** (WCAG 1.4.10 Reflow), checked for the same 13 states.
 - **The waterfall decides its layout from its own width, not the screen's** (a container query). Beside the suggestion panel it has less room than the screen suggests, and it used to cut span names short there. Now it goes to two lines per row whenever it is narrower than 56rem.
 - **Not tested with a real screen reader.** That is the main gap. axe checks rules; it cannot tell whether a page makes sense when it is read aloud.
-- **e2e in CI** (a stretch in the plan) is a second job. It has not run yet: it will on the first push.
+- **e2e in CI** (a stretch in the plan) is a second job, separate from the quick checks.
 - **Left out on purpose:** the full ARIA tree keyboard pattern for the waterfall (arrow keys, levels, expand and collapse). Rows are plain buttons in the tab order. Half a tree pattern would be worse than none.
 
-## Time spent
+</details>
 
-| Step | Time |
-| ---- | ---- |
-| 1    |      |
-| 2    |      |
-| 3    |      |
-| 4    |      |
-| 5    |      |
-| 6    |      |
-| 7    |      |
-| 8    |      |
+[live]: https://TODO.vercel.app
+[slow]: https://TODO.vercel.app/traces/a1b2c3d4e5f60001
+[error]: https://TODO.vercel.app/traces/a1b2c3d4e5f60002
+[unsure]: https://TODO.vercel.app/traces/a1b2c3d4e5f60003
