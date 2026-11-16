@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { spanSchema, traceSummarySchema } from '@/features/traces/schemas';
-import { createDataset, SEED_NOW, SEEDED_TRACE_IDS } from '@/mocks/seed';
+import { spanSchema, traceSummarySchema } from '@/lib/trace-model';
+import {
+  createDataset,
+  INCIDENT,
+  SEED_NOW,
+  SEEDED_TRACE_IDS,
+} from '@/mocks/seed';
 
 const dataset = createDataset();
 const allSpans = [...dataset.spansByTraceId.values()];
@@ -86,6 +91,22 @@ describe('createDataset', () => {
     expect(failed.length).toBeGreaterThan(5);
     expect(stepFailedOnly.length).toBeGreaterThan(0);
     expect(slow.length + failed.length).toBeLessThan(dataset.traces.length / 2);
+  });
+});
+
+describe('the incident', () => {
+  function slowShare(inside: boolean) {
+    const traces = dataset.traces.filter((trace) => {
+      const time = Date.parse(trace.startedAt);
+      return (time >= INCIDENT.fromMs && time < INCIDENT.toMs) === inside;
+    });
+    const slow = traces.filter((trace) => trace.durationMs >= 1000);
+    return slow.length / traces.length;
+  }
+
+  it('makes most requests slow for two hours, and few at other times', () => {
+    expect(slowShare(true)).toBeGreaterThan(0.7);
+    expect(slowShare(false)).toBeLessThan(0.1);
   });
 });
 

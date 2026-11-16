@@ -1,9 +1,17 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest';
-import { setDemoMode } from '@/mocks/demo';
+import { setSimulation } from '@/mocks/simulation';
 import { installMatchMedia } from '@/test/match-media';
 import { server } from '@/test/server';
+
+// jsdom lays nothing out, so it lacks two things the combobox list calls.
+window.ResizeObserver = class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+Element.prototype.scrollIntoView = () => {};
 
 // A request without a handler is a mistake in the test, so fail loudly.
 beforeAll(() => server.listen({ onUnhandledFrame: 'error' }));
@@ -15,7 +23,7 @@ afterEach(() => {
   // Vitest globals are off, so Testing Library cannot register its own cleanup.
   cleanup();
   server.resetHandlers();
-  setDemoMode('normal');
+  setSimulation('normal');
   // The theme lives outside React: a saved choice and a class on <html>.
   localStorage.clear();
   document.documentElement.classList.remove('dark');

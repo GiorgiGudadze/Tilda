@@ -1,5 +1,5 @@
 import type { Suggestion } from '@/features/suggestion/schemas';
-import type { Span } from '@/features/traces/schemas';
+import type { Span } from '@/lib/trace-model';
 import { selfTimes, slowestSpanId } from '@/features/traces/self-time';
 import { SLOW_THRESHOLD_MS } from '@/features/traces/slow';
 import { formatDuration, formatShare } from '@/lib/format';

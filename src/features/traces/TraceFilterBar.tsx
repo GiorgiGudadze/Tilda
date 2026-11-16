@@ -1,42 +1,24 @@
-import type { ReactNode } from 'react';
+import { Layers } from 'lucide-react';
+import { useId } from 'react';
+import { Combobox, type ComboboxOption } from '@/components/Combobox';
+import { Field } from '@/components/Field';
+import { ServiceIcon } from '@/components/ServiceIcon';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
+import { SelectMenu } from '@/components/SelectMenu';
 import type { TraceFilters } from '@/features/traces/filters';
 import { useServices } from '@/features/traces/hooks';
-import { sortSchema, statusSchema } from '@/features/traces/schemas';
-import { cn } from '@/lib/utils';
+import { SORT_OPTIONS } from '@/features/traces/sort';
+import { serviceColor, serviceIcon } from '@/lib/known-services';
 
 interface TraceFilterBarProps {
   filters: TraceFilters;
   onChange: (
-    patch: Partial<Pick<TraceFilters, 'q' | 'service' | 'status' | 'sort'>>,
+    patch: Partial<Pick<TraceFilters, 'q' | 'service' | 'sort'>>,
   ) => void;
 }
 
-/** A control with its label above it. The label wraps the control. */
-function Field({
-  label,
-  className,
-  children,
-}: {
-  label: string;
-  className?: string;
-  children: ReactNode;
-}) {
-  return (
-    <label
-      className={cn(
-        'flex flex-col gap-1 text-xs font-medium text-muted-foreground',
-        className,
-      )}
-    >
-      {label}
-      {children}
-    </label>
-  );
-}
-
 export function TraceFilterBar({ filters, onChange }: TraceFilterBarProps) {
+  const id = useId();
   const { data: services = [] } = useServices();
   // The service in the URL stays selectable while the list loads, and when
   // the link names a service that does not exist.
@@ -44,60 +26,67 @@ export function TraceFilterBar({ filters, onChange }: TraceFilterBarProps) {
     filters.service && !services.includes(filters.service)
       ? [filters.service, ...services]
       : services;
+  const serviceChoices: ComboboxOption[] = [
+    {
+      value: '',
+      label: 'All services',
+      icon: (
+        <Layers
+          aria-hidden="true"
+          className="size-4 shrink-0 text-muted-foreground"
+        />
+      ),
+    },
+    ...serviceOptions.map((service) => ({
+      value: service,
+      label: service,
+      icon: (
+        <ServiceIcon
+          icon={serviceIcon(service)}
+          color={serviceColor(service)}
+        />
+      ),
+    })),
+  ];
 
   return (
     <form
       aria-label="Filter traces"
-      className="grid grid-cols-2 gap-3 sm:grid-cols-[minmax(0,1fr)_10rem_8rem_10rem]"
+      // The status filter is the legend above the chart (`StatusLegend`).
+      className="grid grid-cols-2 gap-3 sm:grid-cols-[minmax(0,1fr)_10rem_10rem]"
       onSubmit={(event) => event.preventDefault()}
     >
-      <Field label="Search" className="col-span-2 sm:col-span-1">
+      <Field
+        label="Search"
+        htmlFor={`${id}-search`}
+        className="col-span-2 sm:col-span-1"
+      >
         <Input
+          id={`${id}-search`}
           type="search"
           placeholder="Operation or trace ID"
           value={filters.q}
           onChange={(event) => onChange({ q: event.target.value })}
         />
       </Field>
-      <Field label="Service">
-        <Select
+      <Field label="Service" htmlFor={`${id}-service`}>
+        <Combobox
+          id={`${id}-service`}
+          label="Service"
           value={filters.service}
-          onChange={(event) => onChange({ service: event.target.value })}
-        >
-          <option value="">All services</option>
-          {serviceOptions.map((service) => (
-            <option key={service} value={service}>
-              {service}
-            </option>
-          ))}
-        </Select>
+          options={serviceChoices}
+          onChange={(service) => onChange({ service })}
+          searchPlaceholder="Search services"
+        />
       </Field>
-      <Field label="Status">
-        <Select
-          value={filters.status ?? ''}
-          onChange={(event) =>
-            onChange({
-              status: statusSchema.safeParse(event.target.value).data ?? null,
-            })
-          }
-        >
-          <option value="">All statuses</option>
-          <option value="ok">OK</option>
-          <option value="error">Error</option>
-        </Select>
-      </Field>
-      <Field label="Sort" className="col-span-2 sm:col-span-1">
-        <Select
+      <Field label="Sort" htmlFor={`${id}-sort`}>
+        <SelectMenu
+          id={`${id}-sort`}
+          label="Sort"
           value={filters.sort}
-          onChange={(event) =>
-            onChange({
-              sort: sortSchema.safeParse(event.target.value).data ?? 'newest',
-            })
-          }
-        >
-          <option value="newest">Newest first</option>
-          <option value="slowest">Slowest first</option>
-        </Select>
+          options={SORT_OPTIONS}
+          onChange={(sort) => onChange({ sort })}
+        />
       </Field>
     </form>
   );

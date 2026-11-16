@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderApp } from '@/test/render';
 
 // Stands in for a lazy page whose code fails to download.
-vi.mock('@/features/design/DesignPage', () => {
+vi.mock('@/pages/design/DesignPage', () => {
   throw new Error('Failed to fetch the page code');
 });
 

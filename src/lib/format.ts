@@ -29,3 +29,15 @@ export function formatDateTime(iso: string): string {
 export function formatShare(part: number, whole: number): string {
   return `${Math.floor((part * 100) / Math.max(whole, 1))}%`;
 }
+
+/** "30 minutes", "1 hour", "1 day". */
+export function formatStep(stepMs: number): string {
+  const minutes = Math.round(stepMs / 60_000);
+  const [amount, unit] =
+    minutes % 1440 === 0
+      ? [minutes / 1440, 'day']
+      : minutes % 60 === 0
+        ? [minutes / 60, 'hour']
+        : [minutes, 'minute'];
+  return `${amount} ${unit}${amount === 1 ? '' : 's'}`;
+}

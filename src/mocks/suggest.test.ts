@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Span, Status } from '@/features/traces/schemas';
+import type { Span, Status } from '@/lib/trace-model';
 import { createDataset, SEEDED_TRACE_IDS } from '@/mocks/seed';
 import { suggestCause } from '@/mocks/suggest';
 

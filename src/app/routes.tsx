@@ -2,10 +2,10 @@ import { Navigate, type RouteObject } from 'react-router';
 import { NotFoundPage } from '@/app/NotFoundPage';
 import { RootLayout } from '@/app/RootLayout';
 import { RouteError } from '@/app/RouteError';
-import { LazyDesignPage } from '@/features/design/LazyDesignPage';
-import { InvestigationPage } from '@/features/investigation/InvestigationPage';
-import { TraceDetailPage } from '@/features/traces/TraceDetailPage';
-import { TracesPage } from '@/features/traces/TracesPage';
+import { LazyDesignPage } from '@/pages/design/LazyDesignPage';
+import { ServicesPage } from '@/pages/services/ServicesPage';
+import { TraceDetailPage } from '@/pages/trace/TraceDetailPage';
+import { TracesPage } from '@/pages/traces/TracesPage';
 
 export const routes: RouteObject[] = [
   {
@@ -21,7 +21,7 @@ export const routes: RouteObject[] = [
       { index: true, element: <Navigate to="/traces" replace /> },
       { path: 'traces', element: <TracesPage /> },
       { path: 'traces/:id', element: <TraceDetailPage /> },
-      { path: 'investigation', element: <InvestigationPage /> },
+      { path: 'services', element: <ServicesPage /> },
       { path: 'design', element: <LazyDesignPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],

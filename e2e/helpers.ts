@@ -9,6 +9,25 @@ export const TRACES = {
 };
 
 export async function expectNoAxeViolations(page: Page) {
+  // Let running transitions finish first. Otherwise axe can measure a
+  // control halfway through a fade (a button turning from disabled grey to
+  // its colour) and report a contrast that no one ever reads. Endless
+  // animations (the skeleton's pulse) are skipped, as they never finish, and
+  // a cancelled one counts as finished.
+  await page.locator('html').evaluate((html) =>
+    Promise.all(
+      html.ownerDocument
+        .getAnimations()
+        .filter(
+          (animation: {
+            effect: { getTiming(): { iterations?: number } } | null;
+          }) => animation.effect?.getTiming().iterations !== Infinity,
+        )
+        .map((animation: { finished: Promise<unknown> }) =>
+          animation.finished.catch(() => undefined),
+        ),
+    ),
+  );
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations).toEqual([]);
 }
@@ -21,19 +40,17 @@ export async function expectNoSidewaysScroll(page: Page) {
   expect(overflow).toBeLessThanOrEqual(0);
 }
 
-/** A pin as the mock API stores it. */
-interface StoredPin {
+/** A decision about a trace's cause, as the mock API stores it. */
+interface StoredDecision {
   traceId: string;
-  status: 'open' | 'resolved';
-  note: string;
-  decision: object | null;
+  decision: object;
 }
 
-/** Puts pins in the browser's storage before the app starts. */
-export async function seedPins(page: Page, pins: StoredPin[]) {
+/** Puts decisions in the browser's storage before the app starts. */
+export async function seedDecisions(page: Page, list: StoredDecision[]) {
   await page.addInitScript((value) => {
-    localStorage.setItem('trace-investigator:pins', value);
-  }, JSON.stringify(pins));
+    localStorage.setItem('trace-investigator:decisions', value);
+  }, JSON.stringify(list));
 }
 
 /** The decision of a user who accepted the suggestion for the slow trace. */
@@ -57,11 +74,11 @@ export async function press(
   await control.page().keyboard.press(key);
 }
 
-/** Resolves when the next save of a pin has been answered. */
-export function nextPinSave(page: Page) {
+/** Resolves when the next save of a decision has been answered. */
+export function nextDecisionSave(page: Page) {
   return page.waitForResponse(
     (response) =>
-      response.url().includes('/api/investigation/') &&
+      response.url().includes('/api/decisions/') &&
       response.request().method() === 'PUT',
   );
 }

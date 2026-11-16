@@ -1,7 +1,7 @@
 import { NuqsAdapter } from 'nuqs/adapters/react-router/v8';
 import type { ReactNode } from 'react';
 import { Link, NavLink, Outlet } from 'react-router';
-import { DemoControl } from '@/app/DemoControl';
+import { SimulateControl } from '@/app/SimulateControl';
 import { useFocusHeadingOnNavigation } from '@/app/use-focus-heading';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Toaster } from '@/components/ui/sonner';
@@ -9,7 +9,7 @@ import { useTheme } from '@/lib/use-theme';
 
 const NAV_LINKS = [
   { to: '/traces', label: 'Traces' },
-  { to: '/investigation', label: 'Investigation' },
+  { to: '/services', label: 'Services' },
   { to: '/design', label: 'Design' },
 ];
 
@@ -46,7 +46,7 @@ export function RootLayout({ children }: { children?: ReactNode }) {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-2">
-            <DemoControl />
+            <SimulateControl />
             <ThemeToggle theme={theme} onToggle={toggleTheme} />
           </div>
         </div>

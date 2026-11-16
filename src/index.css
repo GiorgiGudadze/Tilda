@@ -11,7 +11,6 @@
  * so a theme changes the tokens and never the components.
  */
 @theme inline {
-  --font-heading: var(--font-sans);
   --font-sans: 'Geist Variable', sans-serif;
 
   --color-background: var(--background);
@@ -158,6 +157,19 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  /*
+   * Everything that is pressed to act shows the hand. Tailwind 4 leaves
+   * buttons with the arrow, as browsers do, so this sets it once for every
+   * button, list choice and select, instead of in each component.
+   */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='option']:not([aria-disabled='true']),
+  [role='menuitemradio']:not([aria-disabled='true']),
+  select:not(:disabled),
+  summary {
+    cursor: pointer;
   }
   /* One visible focus style for everything that does not set its own. */
   :focus-visible {

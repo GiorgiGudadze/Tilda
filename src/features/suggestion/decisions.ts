@@ -1,4 +1,4 @@
-import type { Decision } from '@/features/investigation/schemas';
+import type { Decision } from '@/features/suggestion/schemas';
 import type { Suggestion } from '@/features/suggestion/schemas';
 
 /** The spans a suggestion is based on. None when it found nothing wrong. */

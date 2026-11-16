@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import {
   expectNoAxeViolations,
-  nextPinSave,
+  nextDecisionSave,
   press,
   TRACES,
 } from './helpers.ts';
@@ -10,19 +10,30 @@ import {
  * The whole story, by keyboard only: find a failing request, see where it
  * failed, review the suggested cause, and record the outcome.
  */
-test('from a filtered list to a resolved investigation, by keyboard', async ({
+test('from a filtered list to a recorded cause, by keyboard', async ({
   page,
 }) => {
   // 1. Which requests are failing?
   await page.goto('/traces');
-  await page.getByRole('combobox', { name: 'Status' }).selectOption('Error');
-  await page.getByRole('searchbox', { name: 'Search' }).fill('checkout');
   await press(
-    page.getByRole('button', { name: /^500 ms to 1 s, \d+ traces?$/ }),
+    page
+      .getByRole('group', { name: 'Status' })
+      .getByRole('button', { name: 'Error' }),
   );
+  await page
+    .getByRole('searchbox', { name: 'Search', exact: true })
+    .fill('checkout');
+  await page
+    .getByRole('textbox', { name: 'Min duration, in milliseconds' })
+    .focus();
+  await page.keyboard.type('500');
+  await page.keyboard.press('Tab');
+  await page.keyboard.type('999');
   await expect(page).toHaveURL(/status=error/);
   await expect(page).toHaveURL(/q=checkout/);
-  await expect(page).toHaveURL(/duration=500ms-1s/);
+  // Both ends are included: 500 to 999 ms.
+  await expect(page).toHaveURL(/minMs=500/);
+  await expect(page).toHaveURL(/maxMs=999/);
   await expect(page.getByText(/^1 to \d+ of \d+ traces$/)).toBeVisible();
 
   // 2. Where inside the request does it go wrong?
@@ -33,7 +44,6 @@ test('from a filtered list to a resolved investigation, by keyboard', async ({
     page.getByRole('heading', { level: 1, name: 'POST /checkout' }),
   ).toBeFocused();
 
-  await press(page.getByRole('button', { name: 'Pin trace' }));
   await press(page.getByRole('button', { name: 'Suggest cause' }));
   await expect(page.getByRole('button', { name: 'Accept' })).toBeVisible();
   await expect(page.getByText('High confidence')).toBeVisible();
@@ -50,37 +60,19 @@ test('from a filtered list to a resolved investigation, by keyboard', async ({
   await expect(evidenceRow).toBeFocused();
   await expect(evidenceRow).toHaveAttribute('aria-expanded', 'true');
 
-  // 3. What does she tell the team?
+  // 3. What does she tell the team? The decision is the record.
+  const saved = nextDecisionSave(page);
   await press(page.getByRole('button', { name: 'Accept' }));
   await expect(page.getByText('Accepted by you')).toBeVisible();
-
-  await press(page.getByRole('link', { name: 'Open investigation' }));
-  await expect(
-    page.getByRole('heading', { level: 1, name: 'Investigation' }),
-  ).toBeFocused();
-
-  await page
-    .getByRole('textbox', { name: 'Note for POST /checkout' })
-    .fill('Acquirer errors from 11:50. Told #payments.');
-  await press(page.getByRole('button', { name: 'Save note' }));
-  await expect(page.getByText('Saved', { exact: true })).toBeVisible();
-
-  const saved = nextPinSave(page);
-  await press(
-    page.getByRole('button', { name: 'Mark as resolved POST /checkout' }),
-    'Space',
-  );
-  await expect(page.getByText('Resolved', { exact: true })).toBeVisible();
   await saved;
   await expectNoAxeViolations(page);
 
-  // The record is still there after a reload.
+  // The record is still there after a reload, and the list marks the trace.
   await page.reload();
-  const card = page.getByRole('article');
-  await expect(card).toContainText('The error first appears in payments');
-  await expect(card).toContainText('Accepted by you');
-  await expect(card).toContainText('Resolved');
+  await expect(page.getByText('Accepted by you')).toBeVisible();
   await expect(
-    page.getByRole('textbox', { name: 'Note for POST /checkout' }),
-  ).toHaveValue('Acquirer errors from 11:50. Told #payments.');
+    page.getByText('The error first appears in payments'),
+  ).toBeVisible();
+  await press(page.getByRole('link', { name: 'Back to traces' }));
+  await expect(page.getByText('Reviewed', { exact: true })).toHaveCount(1);
 });

@@ -1,4 +1,4 @@
-import type { Span } from '@/features/traces/schemas';
+import type { Span } from '@/lib/trace-model';
 
 /**
  * Self time: how long a span worked itself, without the time it spent

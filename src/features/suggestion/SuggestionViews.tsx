@@ -2,8 +2,8 @@ import { ChevronDown, ChevronRight, Square } from 'lucide-react';
 import { useId, useState } from 'react';
 import { ConfidenceBadge } from '@/components/ConfidenceBadge';
 import { Button } from '@/components/ui/button';
-import { DecisionSummary } from '@/features/investigation/DecisionSummary';
-import type { Decision } from '@/features/investigation/schemas';
+import { DecisionSummary } from '@/features/suggestion/DecisionSummary';
+import type { Decision } from '@/features/suggestion/schemas';
 import { CauseForm } from '@/features/suggestion/CauseForm';
 import {
   accept,
@@ -12,7 +12,7 @@ import {
   reject,
 } from '@/features/suggestion/decisions';
 import type { Suggestion } from '@/features/suggestion/schemas';
-import type { Span } from '@/features/traces/schemas';
+import type { Span } from '@/lib/trace-model';
 
 /** What the views need to show evidence as links to spans. */
 interface EvidenceProps {

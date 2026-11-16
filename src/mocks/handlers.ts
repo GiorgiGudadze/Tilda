@@ -1,15 +1,24 @@
 import { delay, http, HttpResponse } from 'msw';
-import { pinChangesSchema, type Pin } from '@/features/investigation/schemas';
+import { decisionSchema } from '@/features/suggestion/schemas';
+import { serviceHealthParamsSchema } from '@/features/services/schemas';
 import type { SuggestionEvent } from '@/features/suggestion/schemas';
-import { countBuckets } from '@/features/traces/duration-buckets';
 import {
   traceListParamsSchema,
+  tracePointsParamsSchema,
+  traceVolumeParamsSchema,
   type TraceDetail,
   type TraceList,
+  type TracePoints,
 } from '@/features/traces/schemas';
-import { getDemoMode } from '@/mocks/demo';
-import { deletePin, putPin, readPins, type StoredPin } from '@/mocks/pins';
-import { listServices, queryTraces } from '@/mocks/query-traces';
+import { putDecision, readDecisions } from '@/mocks/decisions';
+import { getSimulation } from '@/mocks/simulation';
+import {
+  listServices,
+  queryTracePoints,
+  queryTraces,
+  queryTraceVolume,
+} from '@/mocks/query-traces';
+import { queryServiceHealth } from '@/mocks/query-services';
 import { createDataset } from '@/mocks/seed';
 import { suggestCause } from '@/mocks/suggest';
 
@@ -18,7 +27,15 @@ const dataset = createDataset();
 const EMPTY_LIST: TraceList = {
   items: [],
   total: 0,
-  buckets: countBuckets([]),
+  facets: { names: [] },
+};
+
+const NO_POINTS: TracePoints = { points: [], total: 0 };
+
+const EMPTY_DATASET: typeof dataset = {
+  ...dataset,
+  traces: [],
+  spansByTraceId: new Map(),
 };
 
 /** A real API is never instant. Tests skip the wait. */
@@ -26,7 +43,7 @@ function latency() {
   if (import.meta.env.MODE === 'test') {
     return delay(0);
   }
-  return delay(getDemoMode() === 'slow' ? 3000 : 200 + Math.random() * 600);
+  return delay(getSimulation() === 'slow' ? 3000 : 200 + Math.random() * 600);
 }
 
 /** The wait between two pieces of a streamed answer. Tests skip it. */
@@ -34,7 +51,7 @@ function streamPause() {
   if (import.meta.env.MODE === 'test') {
     return delay(0);
   }
-  return delay(getDemoMode() === 'slow' ? 250 : 50);
+  return delay(getSimulation() === 'slow' ? 250 : 50);
 }
 
 /**
@@ -76,43 +93,86 @@ function streamSuggestion(events: SuggestionEvent[]): ReadableStream {
   });
 }
 
-/** The answer of every endpoint while the Demo control is set to errors. */
-function demoError() {
-  return getDemoMode() === 'error'
+/** The answer of every endpoint while the Simulate control is on server errors. */
+function simulatedError() {
+  return getSimulation() === 'error'
     ? new HttpResponse(null, { status: 500 })
     : undefined;
 }
 
-/** Adds the trace summary to a stored pin. A pin of a missing trace is dropped. */
-function withTrace(pin: StoredPin): Pin | undefined {
-  const trace = dataset.traces.find((item) => item.id === pin.traceId);
-  return trace ? { ...pin, trace } : undefined;
+/** The query string as an object. `name` can repeat, so it stays a list. */
+function queryOf(request: Request) {
+  const params = new URL(request.url).searchParams;
+  return { ...Object.fromEntries(params), name: params.getAll('name') };
 }
 
 export const handlers = [
   http.get('/api/traces', async ({ request }) => {
     await latency();
-    const failure = demoError();
+    const failure = simulatedError();
     if (failure) {
       return failure;
     }
 
-    const query = Object.fromEntries(new URL(request.url).searchParams);
+    const query = queryOf(request);
     const params = traceListParamsSchema.safeParse(query);
     if (!params.success) {
       return new HttpResponse(null, { status: 400 });
     }
 
     const body =
-      getDemoMode() === 'empty'
+      getSimulation() === 'empty'
         ? EMPTY_LIST
         : queryTraces(dataset, params.data);
     return HttpResponse.json(body);
   }),
 
+  // Before `/api/traces/:id`, which would otherwise take "points" for an ID.
+  http.get('/api/traces/points', async ({ request }) => {
+    await latency();
+    const failure = simulatedError();
+    if (failure) {
+      return failure;
+    }
+
+    const query = queryOf(request);
+    const params = tracePointsParamsSchema.safeParse(query);
+    if (!params.success) {
+      return new HttpResponse(null, { status: 400 });
+    }
+
+    const body =
+      getSimulation() === 'empty'
+        ? NO_POINTS
+        : queryTracePoints(dataset, params.data);
+    return HttpResponse.json(body);
+  }),
+
+  // Before `/api/traces/:id` too.
+  http.get('/api/traces/volume', async ({ request }) => {
+    await latency();
+    const failure = simulatedError();
+    if (failure) {
+      return failure;
+    }
+
+    const query = queryOf(request);
+    const params = traceVolumeParamsSchema.safeParse(query);
+    if (!params.success) {
+      return new HttpResponse(null, { status: 400 });
+    }
+
+    // With no data, the chart still spans the range asked for, with empty bars.
+    const body = queryTraceVolume(
+      getSimulation() === 'empty' ? EMPTY_DATASET : dataset,
+      params.data,
+    );
+    return HttpResponse.json(body);
+  }),
+
   http.get('/api/traces/:id', async ({ params }) => {
     await latency();
-    const failure = demoError();
+    const failure = simulatedError();
     if (failure) {
       return failure;
     }
@@ -128,7 +188,7 @@ export const handlers = [
 
   http.post('/api/traces/:id/suggestion', async ({ params }) => {
     await latency();
-    const failure = demoError();
+    const failure = simulatedError();
     if (failure) {
       return failure;
     }
@@ -150,51 +210,58 @@ export const handlers = [
     );
   }),
 
-  http.get('/api/investigation', async () => {
+  http.get('/api/decisions', async () => {
     await latency();
-    const failure = demoError();
+    const failure = simulatedError();
     if (failure) {
       return failure;
     }
-    const pins =
-      getDemoMode() === 'empty'
-        ? []
-        : readPins()
-            .map(withTrace)
-            .filter((pin) => pin !== undefined);
-    return HttpResponse.json(pins);
+    return HttpResponse.json(
+      getSimulation() === 'empty' ? [] : readDecisions(),
+    );
   }),
 
-  http.put('/api/investigation/:traceId', async ({ params, request }) => {
+  // A real PUT: the body is the whole decision, and it replaces any earlier
+  // one for the trace.
+  http.put('/api/decisions/:traceId', async ({ params, request }) => {
     await latency();
-    const failure = demoError();
+    const failure = simulatedError();
     if (failure) {
       return failure;
     }
 
-    const changes = pinChangesSchema.safeParse(await request.json());
-    if (!changes.success) {
+    const decision = decisionSchema.safeParse(await request.json());
+    if (!decision.success) {
       return new HttpResponse(null, { status: 400 });
     }
     const traceId = String(params.traceId);
     if (!dataset.spansByTraceId.has(traceId)) {
       return new HttpResponse(null, { status: 404 });
     }
-    return HttpResponse.json(withTrace(putPin(traceId, changes.data)));
-  }),
-
-  http.delete('/api/investigation/:traceId', async ({ params }) => {
-    await latency();
-    const failure = demoError();
-    if (failure) {
-      return failure;
-    }
-    deletePin(String(params.traceId));
-    return new HttpResponse(null, { status: 204 });
+    return HttpResponse.json(putDecision(traceId, decision.data));
   }),
 
   http.get('/api/services', async () => {
     await latency();
-    return demoError() ?? HttpResponse.json(listServices(dataset));
+    return simulatedError() ?? HttpResponse.json(listServices(dataset));
+  }),
+
+  http.get('/api/services/:name/health', async ({ params, request }) => {
+    await latency();
+    const failure = simulatedError();
+    if (failure) {
+      return failure;
+    }
+    const name = String(params.name);
+    if (!listServices(dataset).includes(name)) {
+      return new HttpResponse(null, { status: 404 });
+    }
+    const query = serviceHealthParamsSchema.safeParse(queryOf(request));
+    if (!query.success) {
+      return new HttpResponse(null, { status: 400 });
+    }
+    // With no data, the known service still answers, with nothing in it.
+    const source = getSimulation() === 'empty' ? EMPTY_DATASET : dataset;
+    return HttpResponse.json(queryServiceHealth(source, name, query.data));
   }),
 ];

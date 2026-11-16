@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { SEEDED_TRACE_IDS } from '@/mocks/seed';
@@ -12,9 +12,9 @@ describe('Going to another page', () => {
     const user = userEvent.setup();
     renderApp('/traces');
 
-    await user.click(screen.getByRole('link', { name: 'Investigation' }));
+    await user.click(screen.getByRole('link', { name: 'Services' }));
 
-    expect(await heading('Investigation')).toHaveFocus();
+    expect(await heading('Services')).toHaveFocus();
   });
 
   it('keeps focus on the heading while the new page loads its data', async () => {
@@ -43,19 +43,21 @@ describe('Going to another page', () => {
     const user = userEvent.setup();
     renderApp('/traces');
     await screen.findByRole('table');
-    const status = screen.getByRole('combobox', { name: 'Status' });
+    const error = within(
+      screen.getByRole('group', { name: 'Status' }),
+    ).getByRole('button', { name: 'Error' });
 
-    await user.selectOptions(status, 'Error');
+    await user.click(error);
     await waitFor(() => expect(window.location.search).toContain('status'));
 
-    expect(status).toHaveFocus();
+    expect(error).toHaveFocus();
   });
 });
 
 describe('The browser tab', () => {
   it.each([
     ['/traces', 'Traces · Trace Investigator'],
-    ['/investigation', 'Investigation · Trace Investigator'],
+    ['/services', 'Services · Trace Investigator'],
     ['/design', 'Design · Trace Investigator'],
     ['/nope', 'Page not found · Trace Investigator'],
     ['/traces/does-not-exist', 'Trace not found · Trace Investigator'],

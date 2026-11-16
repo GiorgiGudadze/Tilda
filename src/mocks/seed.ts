@@ -1,12 +1,31 @@
-import type { Span, TraceSummary } from '@/features/traces/schemas';
+import type { Span, TraceSummary } from '@/lib/trace-model';
 
 /**
  * Demo data. The same seed always gives the same traces: random numbers come
- * from a seeded generator and "now" is a fixed moment, never the real clock.
+ * from a seeded generator, and every time is counted back from one "now".
  */
 
-/** The fixed "now" of the demo data. */
-export const SEED_NOW = Date.parse('2026-11-14T12:00:00.000Z');
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+
+/**
+ * The "now" of the demo data: when the page loaded, to the minute. A deployed
+ * demo then always has traces in "Last 1 hour", and its dates are today's.
+ * The traces are the same on every visit; only their times move.
+ *
+ * Unit tests set `VITE_DEMO_NOW` (see vite.config.ts), so they see the same
+ * times on every run.
+ */
+function demoNow(): number {
+  const fixed = import.meta.env.VITE_DEMO_NOW;
+  if (fixed) {
+    return Date.parse(fixed);
+  }
+  return Math.floor(Date.now() / MINUTE) * MINUTE;
+}
+
+export const SEED_NOW = demoNow();
 
 /** Three hand-written traces that are always present, linked from the README. */
 export const SEEDED_TRACE_IDS = {
@@ -21,8 +40,18 @@ export interface Dataset {
   spansByTraceId: Map<string, Span[]>;
 }
 
-const MINUTE = 60_000;
-const DAY = 24 * 60 * MINUTE;
+/**
+ * Two hours in which the database was overloaded: most requests that started
+ * then have one slow query. It gives the scatter plot something to show.
+ */
+export const INCIDENT = {
+  fromMs: SEED_NOW - 6 * HOUR,
+  toMs: SEED_NOW - 4 * HOUR,
+};
+
+function inIncident(startedAtMs: number): boolean {
+  return startedAtMs >= INCIDENT.fromMs && startedAtMs < INCIDENT.toMs;
+}
 
 // ---------------------------------------------------------------------------
 // Seeded random numbers
@@ -221,31 +250,43 @@ interface Fault {
   workFactor: number;
 }
 
-function chooseFault(random: Random, template: Step): Fault {
+function chooseFault(
+  random: Random,
+  template: Step,
+  duringIncident: boolean,
+): Fault {
   const steps = allSteps(template);
   const fault: Fault = { slowExtraMs: 0, workFactor: 1 };
   const roll = random();
 
-  if (roll < 0.1) {
-    // A required step fails, and the failure reaches the request.
+  if (duringIncident && roll < 0.9) {
+    // The overloaded database: one query waits far longer than usual.
+    fault.slowStep = pick(
+      random,
+      steps.filter((step) => step.service === 'postgres'),
+    );
+    fault.slowExtraMs = randomInt(random, 900, 2600);
+  } else if (roll < 0.02) {
+    // A required step fails, and the failure reaches the request. Rare, as
+    // in a healthy system, so a red mark on the charts means something.
     fault.failingStep = pick(
       random,
       steps.filter((step) => !step.children && !step.optional),
     );
-  } else if (roll < 0.16) {
+  } else if (roll < 0.08) {
     // An optional step fails, and the request still succeeds.
     fault.failingStep = pick(
       random,
       steps.filter((step) => step.optional),
     );
-  } else if (roll < 0.3) {
+  } else if (roll < 0.14) {
     // One slow query.
     fault.slowStep = pick(
       random,
       steps.filter((step) => step.service === 'postgres'),
     );
     fault.slowExtraMs = randomInt(random, 400, 3000);
-  } else if (roll < 0.36) {
+  } else if (roll < 0.17) {
     // Everything is slow, so no single step stands out.
     fault.workFactor = randomInt(random, 5, 10);
   }
@@ -314,13 +355,14 @@ function addSpan(
   return span;
 }
 
-function generateSpans(random: Random): Span[] {
+function generateSpans(random: Random, startedAtMs: number): Span[] {
   const template = pick(random, TEMPLATES);
   if (!template) {
     return [];
   }
   const spans: Span[] = [];
-  addSpan(template, null, 0, spans, chooseFault(random, template), random);
+  const fault = chooseFault(random, template, inIncident(startedAtMs));
+  addSpan(template, null, 0, spans, fault, random);
   return spans;
 }
 
@@ -590,7 +632,7 @@ function summarise(
   };
 }
 
-export function createDataset(seed = 2026, generatedCount = 150): Dataset {
+export function createDataset(seed = 2026, generatedCount = 500): Dataset {
   const random = createRandom(seed);
   const traces: TraceSummary[] = [];
   const spansByTraceId = new Map<string, Span[]>();
@@ -613,7 +655,7 @@ export function createDataset(seed = 2026, generatedCount = 150): Dataset {
   for (let i = 0; i < generatedCount; i++) {
     const id = randomHex(random) + randomHex(random);
     const startedAtMs = SEED_NOW - 15 * MINUTE - randomInt(random, 0, DAY);
-    add(id, startedAtMs, generateSpans(random));
+    add(id, startedAtMs, generateSpans(random, startedAtMs));
   }
 
   traces.sort((a, b) => b.startedAt.localeCompare(a.startedAt));

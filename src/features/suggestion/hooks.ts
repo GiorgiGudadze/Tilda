@@ -11,7 +11,7 @@ import { postJsonLines } from '@/lib/api';
  *
  * `start` begins a request (and drops any earlier one), `stop` ends it.
  * The request is also ended when the component goes away, so nothing keeps
- * streaming after the user leaves the page or unpins the trace.
+ * streaming after the user leaves the page.
  */
 export function useSuggestionStream(traceId: string) {
   const [state, dispatch] = useReducer(streamReducer, initialStreamState);

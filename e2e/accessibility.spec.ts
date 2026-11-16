@@ -3,7 +3,7 @@ import {
   ACCEPTED_DECISION,
   expectNoAxeViolations,
   expectNoSidewaysScroll,
-  seedPins,
+  seedDecisions,
   TRACES,
 } from './helpers.ts';
 
@@ -11,24 +11,74 @@ import {
 interface PageState {
   name: string;
   path: string;
-  /** Pins to have in storage before the page loads. */
-  pins?: Parameters<typeof seedPins>[1];
+  /** Decisions to have in storage before the page loads. */
+  decisions?: Parameters<typeof seedDecisions>[1];
   /** Brings the page into the state to check, and waits until it is there. */
   ready: (page: Page) => Promise<void>;
 }
 
-const pinned = (traceId: string, decision: object | null = null) => [
-  { traceId, status: 'open' as const, note: 'A note', decision },
-];
+/** A stored decision about one trace's suggested cause. */
+const decided = (traceId: string, decision: object) => [{ traceId, decision }];
 
 /** Every page, in every state that looks different. */
 const STATES: PageState[] = [
   {
     name: 'the traces list',
     path: '/traces',
+    // One trace is reviewed, so its marker is checked too.
+    decisions: decided(TRACES.slowQuery, ACCEPTED_DECISION),
     // The count line is there for the table and for the cards on a phone.
     ready: (page) =>
-      expect(page.getByText('1 to 25 of 153 traces')).toBeVisible(),
+      expect(page.getByText('1 to 25 of 503 traces')).toBeVisible(),
+  },
+  {
+    name: 'the traces list with a duration max below its min',
+    path: '/traces?minMs=500&maxMs=200',
+    ready: async (page) => {
+      await expect(
+        page.getByText('No traces match these filters'),
+      ).toBeVisible();
+      // On a narrow screen the filters start closed behind a button.
+      const open = page.getByRole('button', { name: /^Filters/ });
+      if (await open.isVisible()) {
+        await open.click();
+      }
+      await expect(
+        page.getByText('The max is below the min, so nothing can match.'),
+      ).toBeVisible();
+    },
+  },
+  {
+    name: 'the traces list with the Sort list open',
+    path: '/traces',
+    ready: async (page) => {
+      await page.getByRole('button', { name: 'Sort: Newest first' }).click();
+      await expect(
+        page.getByRole('menuitemradio', { name: 'Slowest first' }),
+      ).toBeVisible();
+    },
+  },
+  {
+    name: 'the traces list sorted by duration from its header',
+    path: '/traces?sort=fastest',
+    ready: (page) =>
+      expect(page.getByText(/^1 to 25 of \d+ traces$/)).toBeVisible(),
+  },
+  {
+    name: 'the traces list with two names checked and searched',
+    path: '/traces?name=GET%20%2Forders&name=POST%20%2Flogin',
+    ready: async (page) => {
+      await expect(page.getByText(/^1 to \d+ of \d+ traces$/)).toBeVisible();
+      // On a narrow screen the filters start closed behind a button.
+      const open = page.getByRole('button', { name: /^Filters/ });
+      if (await open.isVisible()) {
+        await open.click();
+      }
+      await page.getByRole('searchbox', { name: 'Search names' }).fill('o');
+      await expect(
+        page.getByRole('button', { name: 'Clear (2)' }),
+      ).toBeVisible();
+    },
   },
   {
     name: 'the traces list with nothing found',
@@ -40,11 +90,60 @@ const STATES: PageState[] = [
     name: 'the traces list with a server error',
     path: '/traces',
     ready: async (page) => {
-      await page
-        .getByRole('combobox', { name: 'Demo' })
-        .selectOption('Server errors');
+      await page.getByRole('button', { name: 'Simulate: Normal' }).click();
+      await page.getByRole('menuitemradio', { name: 'Server errors' }).click();
       await expect(page.getByRole('alert')).toBeVisible();
     },
+  },
+  {
+    name: 'the traces list with the service list open',
+    path: '/traces',
+    ready: async (page) => {
+      await page.getByRole('button', { name: 'Service: All services' }).click();
+      await expect(page.getByRole('option', { name: 'redis' })).toBeVisible();
+    },
+  },
+  {
+    name: 'the traces list with the time range open, and a mistake in it',
+    path: '/traces',
+    ready: async (page) => {
+      await expect(page.getByText('1 to 25 of 503 traces')).toBeVisible();
+      // On a narrow screen the filters start closed behind a button.
+      const open = page.getByRole('button', { name: /^Filters/ });
+      if (await open.isVisible()) {
+        await open.click();
+      }
+      await page.getByRole('button', { name: 'Time: All time' }).click();
+      await page.getByRole('textbox', { name: 'From' }).fill('yesterday');
+      await page.getByRole('button', { name: 'Apply time range' }).click();
+      await expect(page.getByText('Enter an end.')).toBeVisible();
+    },
+  },
+  {
+    name: 'the traces list with the tooltip of a bar',
+    path: '/traces?chart=volume',
+    ready: async (page) => {
+      await expect(page.getByText('1 to 25 of 503 traces')).toBeVisible();
+      const plot = page.locator('figure .cursor-crosshair');
+      const box = (await plot.boundingBox())!;
+      await page.mouse.move(box.x + box.width - 4, box.y + box.height - 4);
+      await expect(page.getByRole('tooltip')).toBeVisible();
+    },
+  },
+  {
+    name: 'the scatter plot with the tooltip of a mark',
+    path: `/traces?chart=scatter`,
+    ready: async (page) => {
+      const mark = page.locator('figure a').first();
+      await expect(mark).toBeAttached();
+      await mark.hover({ force: true });
+      await expect(page.getByRole('tooltip')).toBeVisible();
+    },
+  },
+  {
+    name: 'the traces list as a scatter plot, with a range selected',
+    path: '/traces?chart=scatter&minMs=1000&maxMs=1999',
+    ready: (page) => expect(page.locator('figure svg').first()).toBeVisible(),
   },
   {
     name: 'a trace with a span open',
@@ -53,18 +152,16 @@ const STATES: PageState[] = [
       expect(page.getByText('414 ms, 64% of the trace')).toBeVisible(),
   },
   {
-    name: 'a pinned trace with a suggestion to review',
+    name: 'a trace with a suggestion to review',
     path: `/traces/${TRACES.uncertain}`,
-    pins: pinned(TRACES.uncertain),
     ready: async (page) => {
       await page.getByRole('button', { name: 'Suggest cause' }).click();
       await expect(page.getByRole('button', { name: 'Accept' })).toBeVisible();
     },
   },
   {
-    name: 'a pinned trace with the cause form open',
+    name: 'a trace with the cause form open',
     path: `/traces/${TRACES.slowQuery}`,
-    pins: pinned(TRACES.slowQuery),
     ready: async (page) => {
       await page.getByRole('button', { name: 'Suggest cause' }).click();
       await page.getByRole('button', { name: 'Edit' }).click();
@@ -74,9 +171,9 @@ const STATES: PageState[] = [
     },
   },
   {
-    name: 'a pinned trace with a recorded cause',
+    name: 'a trace with a recorded cause',
     path: `/traces/${TRACES.slowQuery}`,
-    pins: pinned(TRACES.slowQuery, ACCEPTED_DECISION),
+    decisions: decided(TRACES.slowQuery, ACCEPTED_DECISION),
     ready: (page) => expect(page.getByText('Accepted by you')).toBeVisible(),
   },
   {
@@ -88,31 +185,31 @@ const STATES: PageState[] = [
       ).toBeVisible(),
   },
   {
-    name: 'the Investigation page with nothing pinned',
-    path: '/investigation',
-    ready: (page) => expect(page.getByText('Nothing pinned yet')).toBeVisible(),
-  },
-  {
-    name: 'the Investigation page with pins',
-    path: '/investigation',
-    pins: [
-      ...pinned(TRACES.slowQuery, ACCEPTED_DECISION),
-      { traceId: TRACES.error, status: 'resolved', note: '', decision: null },
-    ],
-    ready: (page) => expect(page.getByRole('article')).toHaveCount(2),
-  },
-  {
-    name: 'the Investigation page with a note that is too long',
-    path: '/investigation',
-    pins: pinned(TRACES.error),
+    name: 'the Services page in the health view',
+    path: '/services',
     ready: async (page) => {
-      await page
-        .getByRole('textbox', { name: 'Note for POST /checkout' })
-        .fill('x'.repeat(501));
       await expect(
-        page.getByText('The note is 1 character too long.'),
+        page.getByRole('button', { name: 'Service: api-gateway' }),
       ).toBeVisible();
+      await expect(page.getByText('Dependencies')).toBeVisible();
     },
+  },
+  {
+    name: 'the Services page with the tooltip of a step',
+    path: '/services?service=postgres',
+    ready: async (page) => {
+      await expect(page.getByText('Dependencies')).toBeVisible();
+      await page.locator('[data-step]').nth(30).hover({ force: true });
+      await expect(page.getByRole('tooltip')).toBeVisible();
+    },
+  },
+  {
+    name: 'the Services page for a service that does not exist',
+    path: '/services?service=mainframe',
+    ready: (page) =>
+      expect(
+        page.getByText('There is no service called mainframe'),
+      ).toBeVisible(),
   },
   {
     name: 'the Design page',
@@ -135,7 +232,7 @@ for (const theme of ['light', 'dark'] as const) {
     for (const state of STATES) {
       test(state.name, async ({ page }) => {
         await page.emulateMedia({ colorScheme: theme });
-        await seedPins(page, state.pins ?? []);
+        await seedDecisions(page, state.decisions ?? []);
         await page.goto(state.path);
         await state.ready(page);
         await expectNoAxeViolations(page);
@@ -150,7 +247,7 @@ test.describe('at 320 px wide, nothing scrolls sideways', () => {
   for (const state of STATES) {
     test(state.name, async ({ page }) => {
       await page.setViewportSize({ width: 320, height: 700 });
-      await seedPins(page, state.pins ?? []);
+      await seedDecisions(page, state.decisions ?? []);
       await page.goto(state.path);
       await state.ready(page);
       await expectNoSidewaysScroll(page);
@@ -187,9 +284,9 @@ test.describe('with the keyboard', () => {
     await expect(page.getByRole('row')).toHaveCount(26);
 
     const seen: string[] = [];
-    // Enough presses to pass the header, the filters, the chart and a few
-    // rows of the table.
-    for (let i = 0; i < 22; i++) {
+    // Enough presses to pass the header, the sidebar, the filters, the
+    // chart and a few rows of the table, each a copy button and a link.
+    for (let i = 0; i < 30; i++) {
       await page.keyboard.press('Tab');
       const stop = await page.locator(':focus').evaluate((element) => {
         const style =
@@ -209,31 +306,8 @@ test.describe('with the keyboard', () => {
       expect(stop.visible, `no focus style on "${stop.name}"`).toBe(true);
     }
     // The walk reached the table.
+    expect(seen).toContain('Copy trace ID');
     expect(seen).toContain('GET /orders');
-  });
-
-  test('a dialog keeps focus inside and gives it back when it closes', async ({
-    page,
-  }) => {
-    await seedPins(page, pinned(TRACES.error));
-    await page.goto('/investigation');
-    const unpin = page.getByRole('button', { name: 'Unpin POST /checkout' });
-    await unpin.focus();
-    await page.keyboard.press('Enter');
-
-    const dialog = page.getByRole('alertdialog');
-    await expect(dialog).toBeVisible();
-    // Focus starts on the safe choice and cannot leave the dialog.
-    await expect(
-      dialog.getByRole('button', { name: 'Keep it pinned' }),
-    ).toBeFocused();
-    await page.keyboard.press('Tab');
-    await page.keyboard.press('Tab');
-    await expect(dialog.locator(':focus')).toHaveCount(1);
-
-    await page.keyboard.press('Escape');
-    await expect(dialog).toBeHidden();
-    await expect(unpin).toBeFocused();
   });
 });
 
@@ -243,9 +317,8 @@ test('reduced motion is respected', async ({ page }) => {
   await expect(page.getByRole('row')).toHaveCount(26);
 
   // Slow responses keep the loading skeleton on screen long enough to check.
-  await page
-    .getByRole('combobox', { name: 'Demo' })
-    .selectOption('Slow responses');
+  await page.getByRole('button', { name: 'Simulate: Normal' }).click();
+  await page.getByRole('menuitemradio', { name: 'Slow responses' }).click();
   const skeleton = page.locator('.animate-pulse').first();
   await expect(skeleton).toBeVisible();
   await expect(skeleton).toHaveCSS('animation-name', 'none');

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { StatusBadge } from '@/components/StatusBadge';
-import type { Span } from '@/features/traces/schemas';
+import type { Span } from '@/lib/trace-model';
 import { formatDuration, formatShare } from '@/lib/format';
 import { cn } from '@/lib/utils';
 

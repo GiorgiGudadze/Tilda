@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { formatDateTime, formatDuration, formatShare } from '@/lib/format';
+import {
+  formatDateTime,
+  formatDuration,
+  formatShare,
+  formatStep,
+} from '@/lib/format';
 
 describe('formatDuration', () => {
   it.each([
@@ -33,5 +38,16 @@ describe('formatShare', () => {
     [5, 0, '500%'],
   ])('writes %d of %d as "%s"', (part, whole, expected) => {
     expect(formatShare(part, whole)).toBe(expected);
+  });
+});
+
+describe('formatStep', () => {
+  it('names a step in its largest whole unit', () => {
+    expect(formatStep(60_000)).toBe('1 minute');
+    expect(formatStep(30 * 60_000)).toBe('30 minutes');
+    expect(formatStep(60 * 60_000)).toBe('1 hour');
+    expect(formatStep(180 * 60_000)).toBe('3 hours');
+    expect(formatStep(1440 * 60_000)).toBe('1 day');
+    expect(formatStep(7 * 1440 * 60_000)).toBe('7 days');
   });
 });

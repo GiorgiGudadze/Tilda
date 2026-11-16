@@ -1,9 +1,18 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { toSearchParams, type TraceFilters } from '@/features/traces/filters';
+import {
+  type PointFilters,
+  toPointSearchParams,
+  toSearchParams,
+  toVolumeSearchParams,
+  type TraceFilters,
+  type VolumeFilters,
+} from '@/features/traces/filters';
 import {
   serviceListSchema,
   traceDetailSchema,
   traceListSchema,
+  tracePointsSchema,
+  traceVolumeSchema,
 } from '@/features/traces/schemas';
 import { getJson } from '@/lib/api';
 
@@ -17,6 +26,44 @@ export function useTraces(filters: TraceFilters) {
         signal,
       ),
     // While the next page or filter loads, keep showing the current rows.
+    placeholderData: keepPreviousData,
+  });
+}
+
+/**
+ * The traces as dots for the scatter plot. Only the plot calls it, so the
+ * volume view never loads the points.
+ */
+export function useTracePoints(filters: PointFilters) {
+  const { q, service, status, name, from, to } = filters;
+  const point = { q, service, status, name, from, to };
+  return useQuery({
+    queryKey: ['traces', 'points', point],
+    queryFn: ({ signal }) =>
+      getJson(
+        `/api/traces/points?${toPointSearchParams(point)}`,
+        tracePointsSchema,
+        signal,
+      ),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/**
+ * Traces per step of time, for the volume chart. Only the chart calls it,
+ * so the scatter view never loads it.
+ */
+export function useTraceVolume(filters: VolumeFilters) {
+  const { q, service, status, name, minMs, maxMs, from, to } = filters;
+  const volume = { q, service, status, name, minMs, maxMs, from, to };
+  return useQuery({
+    queryKey: ['traces', 'volume', volume],
+    queryFn: ({ signal }) =>
+      getJson(
+        `/api/traces/volume?${toVolumeSearchParams(volume)}`,
+        traceVolumeSchema,
+        signal,
+      ),
     placeholderData: keepPreviousData,
   });
 }

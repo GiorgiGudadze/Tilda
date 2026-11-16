@@ -42,14 +42,6 @@ export async function putJson<T>(
   return schema.parse(await response.json());
 }
 
-/** DELETE a resource. There is no body to check. */
-export async function deleteResource(path: string): Promise<void> {
-  const response = await fetch(path, { method: 'DELETE' });
-  if (!response.ok) {
-    throw new ApiError(response.status);
-  }
-}
-
 /**
  * POST, then read the answer as a stream of JSON lines. `onEvent` is called
  * for each line as it arrives, after its shape is checked. The promise

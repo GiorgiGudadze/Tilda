@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Span } from '@/features/traces/schemas';
+import type { Span } from '@/lib/trace-model';
 import { selfTimes, slowestSpanId } from '@/features/traces/self-time';
 import { createDataset, SEEDED_TRACE_IDS } from '@/mocks/seed';
 
