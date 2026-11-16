@@ -12,7 +12,7 @@ import type { TimeRange } from '@/lib/time-range';
 import { parseAsBound } from '@/lib/time-range-param';
 
 /** The two ways to chart the traces. */
-const CHART_VIEWS = ['volume', 'scatter'] as const;
+const CHART_VIEWS = ['scatter', 'volume'] as const;
 export type ChartView = (typeof CHART_VIEWS)[number];
 
 // The scatter plot is the default: it shows both when and how slow, and

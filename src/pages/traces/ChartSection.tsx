@@ -14,8 +14,9 @@ const CHART_OPTIONS: {
   label: string;
   icon: typeof ChartColumnStacked;
 }[] = [
-  { value: 'volume', label: 'Volume', icon: ChartColumnStacked },
+  // Scatter first: it is the default view, and it shows both when and how slow.
   { value: 'scatter', label: 'Scatter', icon: ChartScatter },
+  { value: 'volume', label: 'Volume', icon: ChartColumnStacked },
 ];
 
 interface ChartSectionProps {
@@ -29,7 +30,7 @@ interface ChartSectionProps {
 }
 
 /**
- * The chart above the list: Volume or Scatter, kept in the URL, with the
+ * The chart above the list: Scatter or Volume, kept in the URL, with the
  * status legend that also filters in both views.
  */
 export function ChartSection({

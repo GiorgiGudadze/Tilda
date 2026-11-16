@@ -173,15 +173,15 @@ function DurationRangeDemo({
 }
 
 function SegmentedControlDemo({ label }: { label: string }) {
-  const [view, setView] = useState<'volume' | 'scatter'>('volume');
+  const [view, setView] = useState<'volume' | 'scatter'>('scatter');
   return (
     <SegmentedControl
       label={label}
       value={view}
       onChange={setView}
       options={[
-        { value: 'volume', label: 'Volume', icon: ChartColumnStacked },
         { value: 'scatter', label: 'Scatter', icon: ChartScatter },
+        { value: 'volume', label: 'Volume', icon: ChartColumnStacked },
       ]}
     />
   );
