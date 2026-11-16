@@ -10,8 +10,6 @@ The app answers them in that order: find suspicious traces, look inside one, rev
 
 **New to traces? Think of a parcel.** A _trace_ is the tracking history of one request, the way a parcel has a tracking history. Each _span_ is one stop on the way: a service that handled the request, or a query it ran. The app points at the stop where the parcel sat the longest, or where it was lost.
 
-> **TODO before submitting:** replace `https://TODO.vercel.app` with the live address. It appears in the four link definitions at the very bottom of this file.
-
 **Live:** [the app][live]
 
 There is no backend. A mock API runs in the browser, with the same traces on every visit, timed back from the moment the page loads. Three traces are written by hand and are always the newest three in the list:
@@ -336,7 +334,7 @@ What is not mine: the libraries listed above, the `Button` component generated b
 - **Span attributes** (query text, error message), so the details panel can show more than timing.
 - **Smaller things:** decisions that stay fresh across tabs, tests in Firefox and Safari.
 
-[live]: https://TODO.vercel.app
-[slow]: https://TODO.vercel.app/traces/a1b2c3d4e5f60001
-[error]: https://TODO.vercel.app/traces/a1b2c3d4e5f60002
-[unsure]: https://TODO.vercel.app/traces/a1b2c3d4e5f60003
+[live]: https://trace-investigator.vercel.app
+[slow]: https://trace-investigator.vercel.app/traces/a1b2c3d4e5f60001
+[error]: https://trace-investigator.vercel.app/traces/a1b2c3d4e5f60002
+[unsure]: https://trace-investigator.vercel.app/traces/a1b2c3d4e5f60003
